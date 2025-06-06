@@ -88,40 +88,38 @@ app.get("/api/cases", authenticateToken, async (req, res) => {
   }
 });
 
-// This endpoint gets existing draft data for a given token.
+// This endpoint gets existing draft data AND checks submission status.
 app.get("/api/idd/:token/data", async (req, res) => {
   const { token } = req.params;
 
   try {
-    // 1. Find the case that corresponds to this token to get its ID
     const { data: caseData, error: caseError } = await supabaseAdmin
       .from("cases")
       .select("id")
       .eq("idd_secure_link_token", token)
       .single();
 
-    if (caseError || !caseData) {
+    if (caseError) {
       throw new Error("Invalid or expired submission link.");
     }
-    const caseId = caseData.id;
 
-    // 2. Look for an existing invention disclosure for that case
     const { data: disclosureData, error: disclosureError } = await supabaseAdmin
       .from("invention_disclosures")
-      .select("data") // We only need the 'data' field
-      .eq("case_id", caseId)
+      .select("data, submitted_at") // Also select the submitted_at timestamp
+      .eq("case_id", caseData.id)
       .single();
 
-    // If a disclosure exists, send its data. If not, send an empty object.
+    // If no disclosure is found, it's not submitted and has no data.
     if (disclosureError) {
-      // This will likely error if no row is found, which is okay.
-      // It just means no draft has been saved yet.
-      return res.json({});
+      return res.json({ data: {}, isSubmitted: false });
     }
 
-    res.json(disclosureData.data || {});
+    // Send back the data, and a flag indicating if it's been submitted.
+    res.json({
+      data: disclosureData.data || {},
+      isSubmitted: !!disclosureData.submitted_at, // '!!' turns the value into a true boolean
+    });
   } catch (error) {
-    console.error("Error fetching draft data:", error.message);
     res.status(404).json({ message: error.message });
   }
 });
@@ -221,11 +219,14 @@ app.post("/api/idd/:token", upload.single("drawingFile"), async (req, res) => {
     // --- 3. Insert the form's text data into 'invention_disclosures' ---
     const { error: disclosureError } = await supabaseAdmin
       .from("invention_disclosures")
-      .insert({
-        case_id: caseId,
-        data: formData,
-        submitted_at: new Date().toISOString(),
-      });
+      .upsert(
+        {
+          case_id: caseId,
+          data: formData,
+          submitted_at: new Date().toISOString(),
+        },
+        { onConflict: "case_id" }
+      );
     if (disclosureError) {
       throw disclosureError;
     }

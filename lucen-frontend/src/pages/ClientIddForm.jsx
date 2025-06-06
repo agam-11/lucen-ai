@@ -19,6 +19,9 @@ import {
 function ClientIddForm() {
   const { token } = useParams();
 
+  // --- NEW State to track if the form is submitted ---
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
   // State for all form fields
   const [inventorDetails, setInventorDetails] = useState("");
   const [inventionTitle, setInventionTitle] = useState("");
@@ -29,29 +32,42 @@ function ClientIddForm() {
   const [drawingFile, setDrawingFile] = useState(null);
 
   // State for loading and status messages
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState("");
 
   // useEffect to fetch existing draft data when the page loads
   useEffect(() => {
     const fetchDraftData = async () => {
-      if (!token) return;
+      if (!token) {
+        setLoading(false);
+        return;
+      }
       try {
         const response = await fetch(
           `http://localhost:3001/api/idd/${token}/data`
         );
-        if (!response.ok) return;
-        const data = await response.json();
+        if (!response.ok) {
+          setLoading(false);
+          return;
+        }
+        const { data, isSubmitted: alreadySubmitted } = await response.json();
 
         // Populate form fields with draft data if it exists
-        setInventorDetails(data.inventorDetails || "");
-        setInventionTitle(data.inventionTitle || "");
-        setBackground(data.background || "");
-        setDetailedDescription(data.detailedDescription || "");
-        setNovelty(data.novelty || "");
-        setKnownPriorArt(data.knownPriorArt || "");
+        if (alreadySubmitted) {
+          setIsSubmitted(true);
+        } else {
+          // Populate form fields with draft data if it exists
+          setInventorDetails(data.inventorDetails || "");
+          setInventionTitle(data.inventionTitle || "");
+          setBackground(data.background || "");
+          setDetailedDescription(data.detailedDescription || "");
+          setNovelty(data.novelty || "");
+          setKnownPriorArt(data.knownPriorArt || "");
+        }
       } catch (error) {
         console.error("Could not fetch draft data:", error);
+      } finally {
+        setLoading(false);
       }
     };
     fetchDraftData();
@@ -114,9 +130,7 @@ function ClientIddForm() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.message);
 
-      alert(
-        "Thank you! Your invention disclosure has been submitted successfully."
-      );
+      setIsSubmitted(true);
     } catch (error) {
       console.error("Submission failed:", error);
       alert(`Error: ${error.message}`);
@@ -125,6 +139,36 @@ function ClientIddForm() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <p>Loading disclosure...</p>
+      </div>
+    );
+  }
+
+  if (isSubmitted) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
+        <Card className="w-full max-w-3xl text-center">
+          <CardHeader>
+            <CardTitle className="text-3xl text-green-600">
+              Thank You!
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-lg">
+              Your Invention Disclosure has been successfully submitted.
+            </p>
+            <p className="mt-2 text-gray-500">
+              The patent firm has been notified and will be in contact with you
+              shortly.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-3xl">
