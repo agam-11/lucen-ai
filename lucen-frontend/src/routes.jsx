@@ -6,6 +6,7 @@ import Dashboard from "./pages/Dashboard";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 import CaseView from "./pages/CaseView";
+import ClientIddForm from "./pages/ClientIddForm";
 
 const routes = [
   {
@@ -23,6 +24,10 @@ const routes = [
   {
     path: "/reference",
     element: <LoginForm />,
+  },
+  {
+    path: "/idd/:token",
+    element: <ClientIddForm />,
   },
   //   {
   //     path: "/dashboard",
