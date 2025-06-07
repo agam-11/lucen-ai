@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 // Let's create a reusable component for displaying data sections
 function DetailSection({ title, data }) {
@@ -28,6 +31,7 @@ function CaseView() {
   const [caseDetails, setCaseDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [copyButtonText, setCopyButtonText] = useState("Copy Link");
 
   useEffect(() => {
     const fetchCaseDetails = async () => {
@@ -56,11 +60,28 @@ function CaseView() {
     fetchCaseDetails();
   }, [caseId, session]);
 
+  // --- NEW: Function to copy the link to clipboard ---
+  const handleCopyLink = (linkToCopy) => {
+    navigator.clipboard.writeText(linkToCopy).then(
+      () => {
+        setCopyButtonText("Copied!");
+        setTimeout(() => setCopyButtonText("Copy Link"), 2000);
+      },
+      (err) => {
+        console.error("Could not copy text: ", err);
+        setCopyButtonText("Failed to copy");
+      }
+    );
+  };
+
   if (isLoading) return <div className="p-8">Loading case details...</div>;
   if (error) return <div className="p-8 text-red-500">Error: {error}</div>;
   if (!caseDetails) return <div className="p-8">Case not found.</div>;
 
   const disclosureData = caseDetails.invention_disclosure?.data || {};
+
+  // Construct the full client link
+  const clientLink = `${window.location.origin}/idd/${caseDetails.idd_secure_link_token}`;
 
   return (
     <div className="p-4 sm:p-8 bg-gray-50 min-h-screen">
@@ -85,6 +106,31 @@ function CaseView() {
             </span>
           </p>
         </div>
+
+        {/* --- NEW: Secure Link Section --- */}
+        {/* Only show this section if the client has NOT submitted their form yet */}
+        {caseDetails.status &&
+          caseDetails.status.includes("Awaiting Client IDD") && (
+            <Card className="mb-6 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+              <CardHeader>
+                <CardTitle className="text-blue-800 dark:text-blue-200">
+                  Client Submission Link
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mb-4">
+                  The client has not yet submitted their invention disclosure.
+                  You can resend them this secure link.
+                </p>
+                <div className="flex items-center space-x-2">
+                  <Input value={clientLink} readOnly />
+                  <Button onClick={() => handleCopyLink(clientLink)}>
+                    {copyButtonText}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
         {caseDetails.invention_disclosure ? (
           <>

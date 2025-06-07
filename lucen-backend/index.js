@@ -5,12 +5,16 @@ const cors = require("cors");
 const supabaseAdmin = require("./config/supabaseClient");
 const authenticateToken = require("./middleware/authMiddleware");
 const multer = require("multer");
+const { OpenAI } = require("openai");
 
 const app = express();
 const PORT = process.env.PORT || 3001; // Backend port
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 app.use(cors()); // Enable CORS for all routes
 app.use(express.json()); // Middleware to parse JSON bodies
@@ -370,6 +374,79 @@ app.get("/api/idd/:token/data", async (req, res) => {
     res.status(404).json({ message: error.message });
   }
 });
+
+// This endpoint uses an LLM to extract keywords from a submitted IDD
+app.post(
+  "/api/cases/:caseId/extract-keywords",
+  authenticateToken,
+  async (req, res) => {
+    const { caseId } = req.params;
+    const firmUserId = req.user.sub;
+
+    try {
+      // 1. Security Check: Make sure the user owns the case
+      const { data: caseData, error: caseError } = await supabaseAdmin
+        .from("cases")
+        .select("id")
+        .eq("id", caseId)
+        .eq("firm_user_id", firmUserId)
+        .single();
+      if (caseError) {
+        throw new Error("Case not found or permission denied.");
+      }
+
+      // 2. Fetch the invention disclosure data for this case
+      const { data: disclosureData, error: disclosureError } =
+        await supabaseAdmin
+          .from("invention_disclosures")
+          .select("data")
+          .eq("case_id", caseId)
+          .single();
+      if (disclosureError) {
+        throw new Error("Invention disclosure not found for this case.");
+      }
+
+      // 3. Prepare the text content for the AI prompt
+      const idd = disclosureData.data;
+      const textForAI = `
+      Title: ${idd.inventionTitle}
+      Background: ${idd.background}
+      Detailed Description: ${idd.detailedDescription}
+      Novelty: ${idd.novelty}
+    `;
+
+      // 4. Create the prompt for the AI
+      const prompt = `
+      Based on the following invention disclosure text, extract a list of 5 to 10 relevant and specific technical keywords or short phrases suitable for a patent prior art search. Return the keywords as a single, comma-separated string.
+
+      Invention Text:
+      """
+      ${textForAI}
+      """
+
+      Keywords:
+    `;
+
+      // 5. Call the OpenAI API
+      const response = await openai.chat.completions.create({
+        model: "o4-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.3, // Lower temperature for more focused output
+        max_tokens: 100,
+      });
+
+      const keywordsString = response.choices[0].message.content.trim();
+
+      // 6. Send the keywords back to the frontend
+      res.json({ keywords: keywordsString });
+    } catch (error) {
+      console.error("Error extracting keywords:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to extract keywords.", error: error.message });
+    }
+  }
+);
 
 // --- TEST ROUTE ---
 app.get("/api/test-route", (req, res) => {
