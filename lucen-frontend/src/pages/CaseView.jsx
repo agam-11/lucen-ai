@@ -5,7 +5,13 @@ import { useAuth } from "../hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { X } from "lucide-react"; // A nice icon for the delete button
+import { X, Loader2 } from "lucide-react"; // A nice icon for the delete button
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"; // Import Accordion
 
 // Let's create a reusable component for displaying data sections
 function DetailSection({ title, data }) {
@@ -47,6 +53,11 @@ function CaseView() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchError, setSearchError] = useState(null);
   const [searchAttempted, setSearchAttempted] = useState(false);
+
+  // --- NEW STATE FOR ANALYSIS ---
+  // We'll store analyses in an object, with the patent number as the key
+  const [analyses, setAnalyses] = useState({});
+  const [analyzingId, setAnalyzingId] = useState(null); // Tracks which patent is currently being analyzed
 
   useEffect(() => {
     const fetchCaseDetails = async () => {
@@ -149,6 +160,7 @@ function CaseView() {
     setSearchError(null);
     setSearchResults([]); // Clear previous results
     setSearchAttempted(true);
+    setAnalyses({}); // We'll clear old analyses when a new search is performed
 
     try {
       const response = await fetch(
@@ -173,6 +185,65 @@ function CaseView() {
       setSearchError(err.message);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  // --- NEW HANDLER FUNCTION FOR AI ANALYSIS ---
+  const handleAnalyzePriorArt = async (priorArtDocument, index) => {
+    const patentId = priorArtDocument.patent_number || `result-${index}`;
+
+    setAnalyzingId(patentId); // Set loading state for this specific item
+    console.log(
+      "1. handleAnalyzePriorArt started. Document:",
+      priorArtDocument
+    );
+
+    try {
+      console.log("2. Preparing to fetch analysis from the backend...");
+
+      const response = await fetch(
+        `http://localhost:3001/api/cases/${caseId}/analyze-prior-art`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ priorArtDocument }), // Send the specific document to be analyzed
+        }
+      );
+      console.log(
+        "3. Received response from backend. Status:",
+        response.status
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || "Analysis failed.");
+      }
+      console.log("4. Analysis successful. Setting state.");
+      setAnalyses((prevAnalyses) => ({
+        ...prevAnalyses,
+        [patentId]: result,
+      }));
+
+      // Add the new analysis to our state object
+      setAnalyses((prevAnalyses) => ({
+        ...prevAnalyses,
+        [patentId]: result,
+      }));
+    } catch (err) {
+      // Store the error message for this specific item
+      console.error("5. CAUGHT ERROR in handleAnalyzePriorArt:", err);
+
+      setAnalyses((prevAnalyses) => ({
+        ...prevAnalyses,
+        [patentId]: { error: err.message },
+      }));
+    } finally {
+      console.log("6. FINALLY block reached. Clearing loading state.");
+
+      setAnalyzingId(null); // Clear the loading state
     }
   };
 
@@ -316,27 +387,100 @@ function CaseView() {
                     Prior Art Search Results:
                   </h3>
                   <div className="border rounded-md">
-                    {searchResults.map((result, index) => (
-                      <div
-                        key={result.patent_number || index}
-                        className="p-3 border-b last:border-b-0"
-                      >
-                        <a
-                          href={result.link}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 font-semibold hover:underline"
+                    {searchResults.map((result, index) => {
+                      const patentId =
+                        result.patent_number || `result-${index}`;
+                      const analysis = analyses[patentId];
+                      const isCurrentlyAnalyzing = analyzingId === patentId;
+
+                      return (
+                        <div
+                          key={result.patent_number || index}
+                          className="p-3 border-b last:border-b-0"
                         >
-                          {result.title}
-                        </a>
-                        <p className="text-sm text-green-700 dark:text-green-400 mt-1">
-                          {result.patent_number} - {result.publication_date}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {result.snippet}
-                        </p>
-                      </div>
-                    ))}
+                          <a
+                            href={result.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 font-semibold hover:underline"
+                          >
+                            {result.title}
+                          </a>
+                          <p className="text-sm text-green-700 dark:text-green-400 mt-1">
+                            {result.patent_number} - {result.publication_date}
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {result.snippet}
+                          </p>
+                          {/* --- NEW: Analysis Button and Display Logic --- */}
+                          <div className="mt-4">
+                            <Button
+                              onClick={() =>
+                                handleAnalyzePriorArt(result, index)
+                              }
+                              disabled={isCurrentlyAnalyzing || analysis} // Disable if analyzing or already analyzed
+                              variant="outline"
+                              size="sm"
+                            >
+                              {isCurrentlyAnalyzing && (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              )}
+                              {isCurrentlyAnalyzing
+                                ? "Analyzing..."
+                                : analysis
+                                ? "Analysis Complete"
+                                : "Analyze with AI"}
+                            </Button>
+
+                            {analysis && !analysis.error && (
+                              <Accordion
+                                type="single"
+                                collapsible
+                                className="w-full mt-3"
+                              >
+                                <AccordionItem value="item-1">
+                                  <AccordionTrigger>
+                                    View AI Analysis
+                                  </AccordionTrigger>
+                                  <AccordionContent className="p-4 bg-gray-50 dark:bg-gray-800 rounded-b-md">
+                                    <h4 className="font-semibold">Summary:</h4>
+                                    <p className="mb-3">{analysis.summary}</p>
+
+                                    <h4 className="font-semibold">
+                                      Similarity Score:{" "}
+                                      {analysis.similarityScore}/10
+                                    </h4>
+
+                                    <h4 className="font-semibold mt-3">
+                                      Similarities:
+                                    </h4>
+                                    <ul className="list-disc pl-5">
+                                      {analysis.similarities?.map((s, i) => (
+                                        <li key={i}>{s}</li>
+                                      ))}
+                                    </ul>
+
+                                    <h4 className="font-semibold mt-3">
+                                      Differences:
+                                    </h4>
+                                    <ul className="list-disc pl-5">
+                                      {analysis.differences?.map((d, i) => (
+                                        <li key={i}>{d}</li>
+                                      ))}
+                                    </ul>
+                                  </AccordionContent>
+                                </AccordionItem>
+                              </Accordion>
+                            )}
+                            {analysis && analysis.error && (
+                              <p className="text-red-500 text-sm mt-2">
+                                Analysis failed: {analysis.error}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ) : searchAttempted && searchResults.length === 0 ? (
