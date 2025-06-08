@@ -311,6 +311,17 @@ app.get("/api/cases/:caseId", authenticateToken, async (req, res) => {
     }
     // --- END OF NEW LOGIC ---
 
+    // --- NEW LOGIC: Fetch ALL prior art analyses for this case ---
+    const { data: savedAnalyses, error: analysesError } = await supabaseAdmin
+      .from("ai_prior_art_analysis")
+      .select("*")
+      .eq("case_id", caseId);
+
+    if (analysesError) {
+      console.error("Could not fetch saved analyses:", analysesError.message);
+    }
+    // --- END OF NEW LOGIC ---
+
     // 4. (Bonus) Create secure, time-limited download links for each document
     let signedDocuments = [];
     if (documents && documents.length > 0) {
@@ -342,6 +353,7 @@ app.get("/api/cases/:caseId", authenticateToken, async (req, res) => {
       invention_disclosure: disclosure, // Nested disclosure object
       documents: signedDocuments, // Nested documents array
       latest_search: latestSearch,
+      analyses: savedAnalyses || [],
     };
 
     res.json(responseData);
@@ -604,15 +616,76 @@ app.post(
 
       // 4. For now, we just send the analysis back. We will add the logic to save it later.
 
+      // --- THIS IS THE NEW STEP FOR WEEK 12 ---
+      // 4. Save the analysis to our database
+      const { error: saveError } = await supabaseAdmin
+        .from("ai_prior_art_analysis")
+        .insert({
+          case_id: caseId,
+          prior_art_document: priorArtDocument, // Save the original document for reference
+          analysis_summary: analysisJson.summary,
+          similarities: analysisJson.similarities,
+          differences: analysisJson.differences,
+          similarity_score: analysisJson.similarityScore,
+        });
+
+      if (saveError) {
+        // If saving fails, we log it but proceed, as the user still got the analysis.
+        console.error("Error saving AI analysis:", saveError);
+      }
+      // --- END OF NEW STEP ---
+
       res.json(analysisJson);
     } catch (error) {
       console.error("Error analyzing prior art:", error);
+      res.status(500).json({
+        message: "Failed to analyze prior art.",
+        error: error.message,
+      });
+    }
+  }
+);
+
+app.patch(
+  "/api/analyses/:analysisId/status",
+  authenticateToken,
+  async (req, res) => {
+    const { analysisId } = req.params;
+    const { status } = req.body;
+    const firmUserId = req.user.sub;
+
+    if (!["relevant", "dismissed"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status value." });
+    }
+
+    try {
+      // First, verify the user owns the parent case of the analysis they're trying to update.
+      const { data: ownerCheck, error: ownerError } = await supabaseAdmin
+        .from("ai_prior_art_analysis")
+        .select("cases!inner(firm_user_id)")
+        .eq("id", analysisId)
+        .eq("cases.firm_user_id", firmUserId)
+        .single();
+
+      if (ownerError)
+        throw new Error("Analysis not found or permission denied.");
+
+      // If the owner check passes, proceed with the update.
+      const { data, error } = await supabaseAdmin
+        .from("ai_prior_art_analysis")
+        .update({ review_status: status })
+        .eq("id", analysisId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      res.json(data);
+    } catch (error) {
+      console.error("Error updating analysis status:", error);
       res
         .status(500)
-        .json({
-          message: "Failed to analyze prior art.",
-          error: error.message,
-        });
+        .json({ message: error.message || "Failed to update status." });
     }
   }
 );

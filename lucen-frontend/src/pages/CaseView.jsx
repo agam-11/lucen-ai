@@ -13,6 +13,11 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"; // Import Accordion
 
+// Add this helper function at the top of the file
+const getPatentId = (doc, index = 0) => {
+  return doc.publication_number || doc.patent_id || `result-${index}`;
+};
+
 // Let's create a reusable component for displaying data sections
 function DetailSection({ title, data }) {
   if (!data) return null;
@@ -75,6 +80,8 @@ function CaseView() {
           throw new Error(errData.message || "Failed to fetch case details");
         }
         const data = await response.json();
+        console.log("1. Full data received from API:", data); // First debug log
+
         setCaseDetails(data);
         // --- NEW LOGIC: Check for saved search data and populate state ---
         if (data.latest_search) {
@@ -83,6 +90,29 @@ function CaseView() {
           if (data.latest_search.results) {
             setSearchAttempted(true); // If results exist, a search was attempted
           }
+        }
+        // --- END OF NEW LOGIC ---
+        // --- NEW LOGIC: Check for saved analyses and populate state ---
+        if (data.analyses && data.analyses.length > 0) {
+          // The backend sends an array, but our state needs an object
+          // Let's transform the array into an object keyed by patent number
+          const analysesObject = data.analyses.reduce(
+            (acc, analysis, index) => {
+              const patentId = getPatentId(analysis.prior_art_document, index);
+              if (patentId) {
+                // Only add if we have a valid patentId to use as a key
+                acc[patentId] = analysis;
+              }
+              return acc;
+            },
+            {}
+          );
+          console.log(
+            "4. Transformed analyses into state object:",
+            analysesObject
+          );
+
+          setAnalyses(analysesObject);
         }
         // --- END OF NEW LOGIC ---
       } catch (err) {
@@ -190,7 +220,7 @@ function CaseView() {
 
   // --- NEW HANDLER FUNCTION FOR AI ANALYSIS ---
   const handleAnalyzePriorArt = async (priorArtDocument, index) => {
-    const patentId = priorArtDocument.patent_number || `result-${index}`;
+    const patentId = getPatentId(priorArtDocument, index);
 
     setAnalyzingId(patentId); // Set loading state for this specific item
     console.log(
@@ -244,6 +274,43 @@ function CaseView() {
       console.log("6. FINALLY block reached. Clearing loading state.");
 
       setAnalyzingId(null); // Clear the loading state
+    }
+  };
+
+  // --- NEW HANDLER FUNCTION FOR UPDATING STATUS ---
+  const handleUpdateStatus = async (analysisId, newStatus) => {
+    // Find the key (patentId) for the analysis we're updating
+    const patentId = Object.keys(analyses).find(
+      (key) => analyses[key].id === analysisId
+    );
+    if (!patentId) return;
+
+    try {
+      const response = await fetch(
+        `http://localhost:3001/api/analyses/${analysisId}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
+
+      const updatedAnalysis = await response.json();
+      if (!response.ok) {
+        throw new Error(updatedAnalysis.message || "Failed to update status");
+      }
+
+      // Update the local state to immediately reflect the change
+      setAnalyses((prev) => ({
+        ...prev,
+        [patentId]: updatedAnalysis,
+      }));
+    } catch (err) {
+      // You could add error handling here, e.g., show a toast message
+      console.error("Status update failed:", err);
     }
   };
 
@@ -388,15 +455,25 @@ function CaseView() {
                   </h3>
                   <div className="border rounded-md">
                     {searchResults.map((result, index) => {
-                      const patentId =
-                        result.patent_number || `result-${index}`;
+                      const patentId = getPatentId(result, index); // Use helper function
+
                       const analysis = analyses[patentId];
                       const isCurrentlyAnalyzing = analyzingId === patentId;
+                      // --- Helper to determine card background color ---
+                      const getStatusRingColor = (status) => {
+                        if (status === "relevant")
+                          return "ring-2 ring-green-500";
+                        if (status === "dismissed")
+                          return "ring-2 ring-red-500 opacity-60";
+                        return "ring-1 ring-gray-200 dark:ring-gray-700";
+                      };
 
                       return (
                         <div
-                          key={result.patent_number || index}
-                          className="p-3 border-b last:border-b-0"
+                          key={patentId} // Use the patentId we already defined
+                          className={`p-4 rounded-lg mb-2 ${getStatusRingColor(
+                            analysis?.review_status
+                          )}`}
                         >
                           <a
                             href={result.link}
@@ -407,7 +484,8 @@ function CaseView() {
                             {result.title}
                           </a>
                           <p className="text-sm text-green-700 dark:text-green-400 mt-1">
-                            {result.patent_number} - {result.publication_date}
+                            {result.publication_number} -{" "}
+                            {result.publication_date}
                           </p>
                           <p className="text-sm text-muted-foreground mt-2">
                             {result.snippet}
@@ -468,6 +546,51 @@ function CaseView() {
                                         <li key={i}>{d}</li>
                                       ))}
                                     </ul>
+                                    {/* --- NEW ACTION BUTTONS --- */}
+                                    <div className="mt-4 pt-4 border-t flex justify-end items-center space-x-2">
+                                      <span className="text-sm text-muted-foreground">
+                                        Mark as:
+                                      </span>
+                                      <Button
+                                        onClick={() =>
+                                          handleUpdateStatus(
+                                            analysis.id,
+                                            "relevant"
+                                          )
+                                        }
+                                        disabled={
+                                          analysis.review_status === "relevant"
+                                        }
+                                        size="sm"
+                                        variant={
+                                          analysis.review_status === "relevant"
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        className="bg-green-100 text-green-800 hover:bg-green-200"
+                                      >
+                                        Relevant
+                                      </Button>
+                                      <Button
+                                        onClick={() =>
+                                          handleUpdateStatus(
+                                            analysis.id,
+                                            "dismissed"
+                                          )
+                                        }
+                                        disabled={
+                                          analysis.review_status === "dismissed"
+                                        }
+                                        size="sm"
+                                        variant={
+                                          analysis.review_status === "dismissed"
+                                            ? "destructive"
+                                            : "outline"
+                                        }
+                                      >
+                                        Dismiss
+                                      </Button>
+                                    </div>
                                   </AccordionContent>
                                 </AccordionItem>
                               </Accordion>
