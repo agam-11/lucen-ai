@@ -12,6 +12,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"; // Import Accordion
+import AiDraftingStudio from "@/components/AiDraftingStudio";
 
 // Add this helper function at the top of the file
 const getPatentId = (doc, index = 0) => {
@@ -618,6 +619,24 @@ function CaseView() {
             </div>
           </div>
         </div>
+
+        {/* --- PASTE THIS NEW SECTION --- */}
+        {/* Only show the drafting studio if the client has submitted their IDD */}
+        {caseDetails.invention_disclosure && (
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold border-b pb-2 mb-3">
+              AI Drafting Studio
+            </h2>
+            <div className="bg-white dark:bg-card p-4 rounded-lg shadow-sm flex items-center justify-between">
+              <p className="text-muted-foreground">
+                Generate and refine application sections.
+              </p>
+              <Link to={`/case/${caseId}/draft`}>
+                <Button>Open Drafting Studio</Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {caseDetails.invention_disclosure ? (
           <>

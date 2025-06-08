@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import CaseView from "./pages/CaseView";
 import ClientIddForm from "./pages/ClientIddForm";
+import DraftingStudioPage from "./pages/DraftingStudioPage";
 
 const routes = [
   {
@@ -43,6 +44,10 @@ const routes = [
       {
         path: "/case/:caseId",
         element: <CaseView />,
+      },
+      {
+        path: "/case/:caseId/draft",
+        element: <DraftingStudioPage />,
       },
     ],
   },
