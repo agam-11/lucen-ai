@@ -110,30 +110,30 @@ app.get("/api/idd/:token/data", async (req, res) => {
 
     const { data: disclosureData, error: disclosureError } = await supabaseAdmin
       .from("invention_disclosures")
-      .select("data, submitted_at") // Also select the submitted_at timestamp
+      .select("data, submitted_at, firm_comments") // Also select the submitted_at timestamp
       .eq("case_id", caseData.id)
       .single();
 
     // --- NEW: Fetch messages ---
-    const { data: messages, error: messagesError } = await supabaseAdmin
-      .from("communication_log")
-      .select("*")
-      .eq("case_id", caseData.id)
-      .order("created_at", { ascending: true });
-    if (messagesError) {
-      console.error(
-        "Could not fetch messages for client:",
-        messagesError.message
-      );
-    }
-    console.log("dserver");
+    // const { data: messages, error: messagesError } = await supabaseAdmin
+    //   .from("communication_log")
+    //   .select("*")
+    //   .eq("case_id", caseData.id)
+    //   .order("created_at", { ascending: true });
+    // if (messagesError) {
+    //   console.error(
+    //     "Could not fetch messages for client:",
+    //     messagesError.message
+    //   );
+    // }
+    // console.log("dserver");
 
     // If no disclosure is found, it's not submitted and has no data.
     if (disclosureError) {
       return res.json({
         data: {},
         isSubmitted: false,
-        messages: messages || [],
+        // messages: messages || [],
       });
     }
 
@@ -141,7 +141,8 @@ app.get("/api/idd/:token/data", async (req, res) => {
     res.json({
       data: disclosureData.data || {},
       isSubmitted: !!disclosureData.submitted_at, // '!!' turns the value into a true boolean
-      messages: messages || [], // Add messages to the response
+      // messages: messages || [], // Add messages to the response
+      firmComments: disclosureData?.firm_comments || null, // Add the comments to the response
     });
   } catch (error) {
     res.status(404).json({ message: error.message });
@@ -1240,6 +1241,70 @@ app.post(
 //       .json({ message: "Failed to post message.", error: error.message });
 //   }
 // });
+
+// This endpoint allows a firm to request changes to a submitted IDD
+app.post(
+  "/api/cases/:caseId/request-changes",
+  authenticateToken,
+  async (req, res) => {
+    const { caseId } = req.params;
+    const { comments } = req.body; // The comments from the firm
+    const firmUserId = req.user.sub;
+
+    if (!comments) {
+      return res
+        .status(400)
+        .json({ message: "Comments are required to request changes." });
+    }
+
+    try {
+      // 1. Security check: Make sure the user owns the case
+      const { data: caseData, error: ownerError } = await supabaseAdmin
+        .from("cases")
+        .select("id")
+        .eq("id", caseId)
+        .eq("firm_user_id", firmUserId)
+        .single();
+      if (ownerError) {
+        throw new Error("Case not found or permission denied.");
+      }
+
+      // 2. Update the case status back to 'Awaiting Client IDD'
+      const { error: caseUpdateError } = await supabaseAdmin
+        .from("cases")
+        .update({ status: "Awaiting Client IDD" })
+        .eq("id", caseId);
+      if (caseUpdateError) {
+        throw caseUpdateError;
+      }
+
+      // 3. Update the invention disclosure: add comments and "re-open" the form by clearing the submission date
+      const { data, error: disclosureUpdateError } = await supabaseAdmin
+        .from("invention_disclosures")
+        .update({
+          firm_comments: comments,
+          submitted_at: null, // This re-opens the form for the client
+        })
+        .eq("case_id", caseId)
+        .select()
+        .single();
+
+      if (disclosureUpdateError) {
+        throw disclosureUpdateError;
+      }
+
+      res.status(200).json({
+        message: "Changes requested successfully.",
+        updatedCase: data,
+      });
+    } catch (error) {
+      console.error("Error requesting changes:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to request changes.", error: error.message });
+    }
+  }
+);
 
 // --- TEST ROUTE ---
 app.get("/api/test-route", (req, res) => {

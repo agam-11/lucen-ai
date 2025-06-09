@@ -1,5 +1,5 @@
 // src/pages/CaseView.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"; // Import Accordion
 import ManualPriorArtUploader from "../components/ManualPriorArtUploader";
+import RequestChangesForm from "../components/RequestChangesForm";
 
 // Add this helper function at the top of the file
 const getPatentId = (doc, index = 0) => {
@@ -65,66 +66,63 @@ function CaseView() {
   const [analyses, setAnalyses] = useState({});
   const [analyzingId, setAnalyzingId] = useState(null); // Tracks which patent is currently being analyzed
 
-  useEffect(() => {
-    const fetchCaseDetails = async () => {
-      if (!session) return;
-      setIsLoading(true);
-      try {
-        const response = await fetch(
-          `http://localhost:3001/api/cases/${caseId}`,
-          {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          }
-        );
-        if (!response.ok) {
-          const errData = await response.json();
-          throw new Error(errData.message || "Failed to fetch case details");
+  const fetchCaseDetails = useCallback(async () => {
+    if (!session) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        `http://localhost:3001/api/cases/${caseId}`,
+        {
+          headers: { Authorization: `Bearer ${session.access_token}` },
         }
-        const data = await response.json();
-        console.log("1. Full data received from API:", data); // First debug log
-
-        setCaseDetails(data);
-        // --- NEW LOGIC: Check for saved search data and populate state ---
-        if (data.latest_search) {
-          setSuggestedKeywords(data.latest_search.keywords || []);
-          setSearchResults(data.latest_search.results || []);
-          if (data.latest_search.results) {
-            setSearchAttempted(true); // If results exist, a search was attempted
-          }
-        }
-        // --- END OF NEW LOGIC ---
-        // --- NEW LOGIC: Check for saved analyses and populate state ---
-        if (data.analyses && data.analyses.length > 0) {
-          // The backend sends an array, but our state needs an object
-          // Let's transform the array into an object keyed by patent number
-          const analysesObject = data.analyses.reduce(
-            (acc, analysis, index) => {
-              const patentId = getPatentId(analysis.prior_art_document, index);
-              if (patentId) {
-                // Only add if we have a valid patentId to use as a key
-                acc[patentId] = analysis;
-              }
-              return acc;
-            },
-            {}
-          );
-          console.log(
-            "4. Transformed analyses into state object:",
-            analysesObject
-          );
-
-          setAnalyses(analysesObject);
-        }
-        // --- END OF NEW LOGIC ---
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
+      );
+      if (!response.ok) {
+        const errData = await response.json();
+        throw new Error(errData.message || "Failed to fetch case details");
       }
-    };
+      const data = await response.json();
+      console.log("1. Full data received from API:", data); // First debug log
 
-    fetchCaseDetails();
+      setCaseDetails(data);
+      // --- NEW LOGIC: Check for saved search data and populate state ---
+      if (data.latest_search) {
+        setSuggestedKeywords(data.latest_search.keywords || []);
+        setSearchResults(data.latest_search.results || []);
+        if (data.latest_search.results) {
+          setSearchAttempted(true); // If results exist, a search was attempted
+        }
+      }
+      // --- END OF NEW LOGIC ---
+      // --- NEW LOGIC: Check for saved analyses and populate state ---
+      if (data.analyses && data.analyses.length > 0) {
+        // The backend sends an array, but our state needs an object
+        // Let's transform the array into an object keyed by patent number
+        const analysesObject = data.analyses.reduce((acc, analysis, index) => {
+          const patentId = getPatentId(analysis.prior_art_document, index);
+          if (patentId) {
+            // Only add if we have a valid patentId to use as a key
+            acc[patentId] = analysis;
+          }
+          return acc;
+        }, {});
+        console.log(
+          "4. Transformed analyses into state object:",
+          analysesObject
+        );
+
+        setAnalyses(analysesObject);
+      }
+      // --- END OF NEW LOGIC ---
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
   }, [caseId, session]);
+
+  useEffect(() => {
+    fetchCaseDetails();
+  }, [fetchCaseDetails]);
 
   // --- NEW: Function to copy the link to clipboard ---
   const handleCopyLink = (linkToCopy) => {
@@ -316,6 +314,17 @@ function CaseView() {
   };
 
   // Add this function inside your CaseView component
+  const handleChangesRequested = () => {
+    // The simplest way to see the new status is to refetch all case data
+    setIsLoading(true);
+    // We can just re-call the fetch function from the useEffect
+    // To do this cleanly, let's wrap the fetch logic in its own function
+    fetchCaseDetails();
+  };
+  // Note: You may need to move the `fetchCaseDetails` function outside the useEffect
+  // so it can be called from here. Let's do that.
+
+  // Add this function inside your CaseView component
   const handleManualUploadSuccess = (newDocument) => {
     setCaseDetails((prev) => ({
       ...prev,
@@ -380,6 +389,28 @@ function CaseView() {
               </CardContent>
             </Card>
           )}
+
+        {/* --- NEW SECTION: Request Changes Form --- */}
+        {/* Only show this if the IDD has been submitted */}
+        {caseDetails.status === "IDD Submitted" && (
+          <Card className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+            <CardHeader>
+              <CardTitle className="text-yellow-800 dark:text-yellow-200">
+                Review Invention Disclosure
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300 mb-4">
+                Review the client's submission. If changes are needed, provide
+                your comments below and send it back to the client to edit.
+              </p>
+              <RequestChangesForm
+                caseId={caseId}
+                onRequestSent={handleChangesRequested}
+              />
+            </CardContent>
+          </Card>
+        )}
 
         {/* --- NEW SECTION: AI PRIOR ART INVESTIGATOR --- */}
         <div className="mb-6">

@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // A new component for comments
 
 function ClientIddForm() {
   const { token } = useParams();
@@ -34,6 +35,8 @@ function ClientIddForm() {
   // State for loading and status messages
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState("");
+  // --- NEW STATE for firm comments ---
+  const [firmComments, setFirmComments] = useState(null);
 
   // const [messages, setMessages] = useState([]); // <-- NEW state for messages
 
@@ -56,6 +59,7 @@ function ClientIddForm() {
           data,
           isSubmitted: alreadySubmitted,
           // messages: loadedMessages,
+          firmComments: loadedComments,
         } = await response.json();
 
         // Populate form fields with draft data if it exists
@@ -69,6 +73,7 @@ function ClientIddForm() {
           setDetailedDescription(data.detailedDescription || "");
           setNovelty(data.novelty || "");
           setKnownPriorArt(data.knownPriorArt || "");
+          setFirmComments(loadedComments); // <-- Set the comments state
         }
         // setMessages(loadedMessages || []); // <-- Set the messages state
       } catch (error) {
@@ -188,6 +193,16 @@ function ClientIddForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* --- NEW UI SECTION to display comments --- */}
+          {firmComments && (
+            <Alert variant="destructive" className="mb-6">
+              <AlertTitle>Changes Requested by the Firm</AlertTitle>
+              <AlertDescription className="whitespace-pre-wrap">
+                {firmComments}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <form onSubmit={handleSubmit} id="idd-form" className="space-y-6">
             {/* All form fields are now included below */}
 
