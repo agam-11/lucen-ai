@@ -100,7 +100,7 @@ app.get("/api/idd/:token/data", async (req, res) => {
   try {
     const { data: caseData, error: caseError } = await supabaseAdmin
       .from("cases")
-      .select("id")
+      .select("id, status")
       .eq("idd_secure_link_token", token)
       .single();
 
@@ -134,6 +134,7 @@ app.get("/api/idd/:token/data", async (req, res) => {
         data: {},
         isSubmitted: false,
         // messages: messages || [],
+        caseStatus: caseData.status, // <-- The crucial new piece of info
       });
     }
 
@@ -288,8 +289,15 @@ app.post("/api/idd/:token", upload.single("drawingFile"), async (req, res) => {
       .from("cases")
       .update({ status: "IDD Submitted" })
       .eq("id", caseId);
+    // if (updateError) {
+    //   console.error("Could not update case status:", updateError);
+    // }
     if (updateError) {
-      console.error("Could not update case status:", updateError);
+      console.error(
+        "CRITICAL ERROR: Failed to update case status after submission.",
+        updateError
+      );
+      throw updateError; // This makes sure the entire request fails if the status doesn't update.
     }
 
     // --- 5. Send a success response ---
@@ -527,6 +535,7 @@ app.get("/api/idd/:token/data", async (req, res) => {
       throw new Error("Invalid or expired submission link.");
     }
     const caseId = caseData.id;
+    console.log("madarchod endpoint");
 
     // 2. Look for an existing invention disclosure for that case
     const { data: disclosureData, error: disclosureError } = await supabaseAdmin
@@ -1369,7 +1378,7 @@ app.patch(
       const { error: caseUpdateError } = await supabaseAdmin
         .from("cases")
         .update({ status: "Awaiting Client Approval" })
-        .eq("id", docData.case_id);
+        .eq("id", data.case_id);
       if (caseUpdateError) {
         throw caseUpdateError;
       }
@@ -1415,6 +1424,31 @@ app.patch("/api/idd/:token/documents/:docId/review", async (req, res) => {
     if (error) {
       throw error;
     }
+
+    // --- THIS IS THE NEW, CRITICAL STEP ---
+    // If the client requested changes, update the main case status so the firm can see it
+    if (status === "changes_requested") {
+      const { error: caseUpdateError } = await supabaseAdmin
+        .from("cases")
+        .update({ status: "Client Changes Requested" }) // A new, clear status
+        .eq("id", caseData.id);
+
+      if (caseUpdateError) {
+        throw caseUpdateError;
+      }
+    }
+    if (status === "approved") {
+      const { error: caseUpdateError } = await supabaseAdmin
+        .from("cases")
+        .update({ status: "Client Approved" }) // A final status
+        .eq("id", caseData.id);
+
+      if (caseUpdateError) {
+        throw caseUpdateError;
+      }
+    }
+    // --- END OF NEW STEP ---
+
     res.json(data);
   } catch (error) {
     console.error("Error submitting client review:", error);

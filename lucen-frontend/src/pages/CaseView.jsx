@@ -15,6 +15,7 @@ import {
 import ManualPriorArtUploader from "../components/ManualPriorArtUploader";
 import RequestChangesForm from "../components/RequestChangesForm";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 // Add this helper function at the top of the file
 const getPatentId = (doc, index = 0) => {
@@ -66,6 +67,8 @@ function CaseView() {
   // We'll store analyses in an object, with the patent number as the key
   const [analyses, setAnalyses] = useState({});
   const [analyzingId, setAnalyzingId] = useState(null); // Tracks which patent is currently being analyzed
+
+  const [sharingDocId, setSharingDocId] = useState(null);
 
   const fetchCaseDetails = useCallback(async () => {
     if (!session) return;
@@ -335,6 +338,8 @@ function CaseView() {
 
   // --- NEW HANDLER FUNCTION for sharing a document ---
   const handleShareDocument = async (docId) => {
+    setSharingDocId(docId); // Set loading state for THIS specific button
+
     try {
       const response = await fetch(
         `http://localhost:3001/api/documents/${docId}/share`,
@@ -348,21 +353,47 @@ function CaseView() {
       );
       const updatedDoc = await response.json();
       if (!response.ok) {
-        throw new Error(updatedDoc.message);
+        throw new Error(updatedDoc.message || "Failed to share document.");
+        // const errData = await response.json();
+        // throw new Error(errData.message || "Failed to share document.");
       }
+      // --- THIS IS THE FIX ---
+      // We create an artificial 1-second delay to ensure the user sees the loading state.
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      // --- END OF FIX ---
 
       // Update the state to reflect the change without a full page reload
-      setCaseDetails((prev) => ({
-        ...prev,
-        documents: prev.documents.map((doc) =>
-          doc.id === docId
-            ? { ...doc, is_shared: true, client_review_status: "pending" }
-            : doc
-        ),
-      }));
+      // setCaseDetails((prev) => ({
+      //   ...prev,
+      //   documents: prev.documents.map((doc) =>
+      //     doc.id === docId
+      //       ? { ...doc, is_shared: true, client_review_status: "pending" }
+      //       : doc
+      //   ),
+      // }));
+      // --- THIS IS THE NEW LOGIC ---
+      // Instead of refetching the whole page, we will manually update our local state.
+      setCaseDetails((prevDetails) => {
+        // 1. Create a new, updated list of documents
+        const newDocuments = prevDetails.documents.map((doc) =>
+          doc.id === docId ? updatedDoc : doc
+        );
+
+        // 2. Return a new caseDetails object with the new case status and the updated documents list
+        return {
+          ...prevDetails,
+          status: "Awaiting Client Approval", // Manually update the status
+          documents: newDocuments,
+        };
+      });
+      // --- END OF NEW LOGIC ---
+
+      // fetchCaseDetails(); // We already have this function from our earlier refactor!
     } catch (err) {
       console.error("Failed to share document:", err);
       // Optionally, show an error message to the user
+    } finally {
+      setSharingDocId(null); // Clear the loading state when done
     }
   };
 
@@ -374,6 +405,11 @@ function CaseView() {
 
   // Construct the full client link
   const clientLink = `${window.location.origin}/idd/${caseDetails.idd_secure_link_token}`;
+
+  console.log(
+    "PRE-RENDER CHECK: About to render with this caseDetails object:",
+    caseDetails
+  );
 
   return (
     <div className="p-4 sm:p-8 bg-gray-50 min-h-screen">
@@ -714,7 +750,8 @@ function CaseView() {
         {/* --- NEW SECTION: Manual Prior Art --- */}
         <div className="mb-6">
           <h2 className="text-xl font-semibold border-b pb-2 mb-3">
-            Manually Add Prior Art
+            {/* Manually Add Prior Art */}
+            Manually Add Documents
           </h2>
           <div className="bg-white dark:bg-card p-4 rounded-lg shadow-sm">
             <ManualPriorArtUploader
@@ -821,22 +858,68 @@ function CaseView() {
                               Notes: {doc.notes}
                             </p>
                           )}
-                          {doc.is_shared && (
+                          {/* {doc.is_shared && (
                             <Badge variant="secondary" className="mt-1">
                               Shared with Client - Status:{" "}
                               {doc.client_review_status}
                             </Badge>
-                          )}
+                          )} */}
                         </div>
+
                         {!doc.is_shared && (
                           <Button
                             onClick={() => handleShareDocument(doc.id)}
                             size="sm"
                             variant="outline"
+                            disabled={sharingDocId === doc.id} // Disable ONLY the button being clicked
                           >
-                            Share with Client
+                            {sharingDocId === doc.id && (
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            )}
+                            {sharingDocId === doc.id
+                              ? "Sharing..."
+                              : "Share with Client"}
+                            {/* Share with Client */}
                           </Button>
                         )}
+
+                        {/* --- THIS IS THE NEW LOGIC --- */}
+                        {doc.is_shared && (
+                          <div className="mt-3">
+                            {doc.client_review_status === "pending" && (
+                              <Badge variant="secondary">
+                                Awaiting Client Review
+                              </Badge>
+                            )}
+                            {doc.client_review_status === "approved" && (
+                              // <Badge className="bg-green-100 text-green-800">
+                              //   Client Approved
+                              //   {doc.client_comments}
+                              // </Badge>
+                              <Alert className={"bg-green-100 text-green-800"}>
+                                <AlertTitle>Client Approved</AlertTitle>
+                                <AlertDescription className="whitespace-pre-wrap mt-2">
+                                  {doc.client_comments ||
+                                    "No specific comments were provided."}
+                                </AlertDescription>
+                              </Alert>
+                            )}
+
+                            {doc.client_review_status ===
+                              "changes_requested" && (
+                              <Alert variant="destructive">
+                                <AlertTitle>
+                                  Client Requested Changes
+                                </AlertTitle>
+                                <AlertDescription className="whitespace-pre-wrap mt-2">
+                                  {doc.client_comments ||
+                                    "No specific comments were provided."}
+                                </AlertDescription>
+                              </Alert>
+                            )}
+                          </div>
+                        )}
+                        {/* --- END OF NEW LOGIC --- */}
                       </li>
                     ))}
                   </ul>

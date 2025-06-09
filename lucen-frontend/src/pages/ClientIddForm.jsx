@@ -68,11 +68,14 @@ function ClientIddForm() {
           // messages: loadedMessages,
           firmComments: loadedComments,
           sharedDocuments: loadedDocs,
-          caseStatus,
+          caseStatus: caseStatus,
         } = await response.json();
 
         // Populate form fields with draft data if it exists
         setCaseStatus(caseStatus); // This is now our master switch
+
+        console.log("here we go from useeffect");
+        console.log("db thing" + caseStatus);
 
         // Populate form fields with draft data if it exists
         setInventorDetails(data.inventorDetails || "");
@@ -185,7 +188,9 @@ function ClientIddForm() {
     );
   }
 
-  const isFormDisabled = caseStatus === "IDD Submitted";
+  // const isFormDisabled = caseStatus === "IDD Submitted";
+  console.log(caseStatus);
+  const isFormDisabled = caseStatus !== "Awaiting Client IDD";
 
   // if (isSubmitted) {
   //   return (

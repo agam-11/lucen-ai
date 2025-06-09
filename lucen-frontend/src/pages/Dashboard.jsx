@@ -132,7 +132,18 @@ function Dashboard() {
                 {caseItem.invention_title_snippet || "No Title"}
               </TableCell>
               <TableCell>
-                <Badge variant="outline">{caseItem.status}</Badge>
+                {/* <Badge variant="outline">{caseItem.status}</Badge> */}
+                <Badge
+                  variant={
+                    caseItem.status.includes("Approved")
+                      ? "default"
+                      : caseItem.status.includes("Changes Requested")
+                      ? "destructive"
+                      : "outline"
+                  }
+                >
+                  {caseItem.status}
+                </Badge>
               </TableCell>
               <TableCell className="text-right">
                 {new Date(caseItem.created_at).toLocaleDateString()}
