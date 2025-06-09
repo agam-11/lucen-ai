@@ -12,7 +12,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion"; // Import Accordion
-import AiDraftingStudio from "@/components/AiDraftingStudio";
+import ManualPriorArtUploader from "../components/ManualPriorArtUploader";
 
 // Add this helper function at the top of the file
 const getPatentId = (doc, index = 0) => {
@@ -313,6 +313,14 @@ function CaseView() {
       // You could add error handling here, e.g., show a toast message
       console.error("Status update failed:", err);
     }
+  };
+
+  // Add this function inside your CaseView component
+  const handleManualUploadSuccess = (newDocument) => {
+    setCaseDetails((prev) => ({
+      ...prev,
+      documents: [...(prev.documents || []), newDocument],
+    }));
   };
 
   if (isLoading) return <div className="p-8">Loading case details...</div>;
@@ -637,6 +645,33 @@ function CaseView() {
             </div>
           </div>
         )}
+
+        {/* --- NEW SECTION: Manual Prior Art --- */}
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold border-b pb-2 mb-3">
+            Manually Add Prior Art
+          </h2>
+          <div className="bg-white dark:bg-card p-4 rounded-lg shadow-sm">
+            <ManualPriorArtUploader
+              caseId={caseId}
+              onUploadSuccess={handleManualUploadSuccess}
+            />
+          </div>
+        </div>
+        {/* --- NEW SECTION: Communication Log --- */}
+        {/* <div className="mb-6">
+          <h2 className="text-xl font-semibold border-b pb-2 mb-3">
+            Communication Log
+          </h2>
+          <div className="bg-white dark:bg-card p-4 rounded-lg shadow-sm">
+            {caseDetails && (
+              <CommunicationLog
+                caseId={caseId}
+                initialMessages={caseDetails.messages}
+              />
+            )}
+          </div>
+        </div> */}
 
         {caseDetails.invention_disclosure ? (
           <>

@@ -96,7 +96,7 @@ app.get("/api/cases", authenticateToken, async (req, res) => {
 // This endpoint gets existing draft data AND checks submission status.
 app.get("/api/idd/:token/data", async (req, res) => {
   const { token } = req.params;
-
+  console.log("hie dawg from server");
   try {
     const { data: caseData, error: caseError } = await supabaseAdmin
       .from("cases")
@@ -114,15 +114,34 @@ app.get("/api/idd/:token/data", async (req, res) => {
       .eq("case_id", caseData.id)
       .single();
 
+    // --- NEW: Fetch messages ---
+    const { data: messages, error: messagesError } = await supabaseAdmin
+      .from("communication_log")
+      .select("*")
+      .eq("case_id", caseData.id)
+      .order("created_at", { ascending: true });
+    if (messagesError) {
+      console.error(
+        "Could not fetch messages for client:",
+        messagesError.message
+      );
+    }
+    console.log("dserver");
+
     // If no disclosure is found, it's not submitted and has no data.
     if (disclosureError) {
-      return res.json({ data: {}, isSubmitted: false });
+      return res.json({
+        data: {},
+        isSubmitted: false,
+        messages: messages || [],
+      });
     }
 
     // Send back the data, and a flag indicating if it's been submitted.
     res.json({
       data: disclosureData.data || {},
       isSubmitted: !!disclosureData.submitted_at, // '!!' turns the value into a true boolean
+      messages: messages || [], // Add messages to the response
     });
   } catch (error) {
     res.status(404).json({ message: error.message });
@@ -214,6 +233,7 @@ app.post("/api/idd/:token", upload.single("drawingFile"), async (req, res) => {
           file_name: file.originalname,
           file_path: filePath,
           storage_bucket: "case-files",
+          document_type: "client_disclosure", // <-- ADD THIS LINE
         });
 
       if (docError) {
@@ -322,30 +342,128 @@ app.get("/api/cases/:caseId", authenticateToken, async (req, res) => {
     }
     // --- END OF NEW LOGIC ---
 
+    // --- THIS IS THE NEW, SIMPLER LOGIC FOR MESSAGES ---
+    // 1. Fetch the raw messages
+    // const { data: rawMessages, error: messagesError } = await supabaseAdmin
+    //   .from("communication_log")
+    //   .select("*")
+    //   .eq("case_id", caseId)
+    //   .order("created_at", { ascending: true });
+    // if (messagesError) {
+    //   console.error("Could not fetch messages:", messagesError.message);
+    // }
+
+    // // 2. We need to get the emails for the users who posted
+    // // To be efficient, we'll get a unique list of user IDs from the messages
+    // const userIds = [...new Set(rawMessages.map((msg) => msg.firm_user_id))];
+
+    // // 3. Fetch the user details for those IDs
+    // const { data: users, error: usersError } = await supabaseAdmin
+    //   .from("users")
+    //   .select("id, email")
+    //   .in("id", userIds);
+    // if (usersError) {
+    //   console.error("Could not fetch user emails:", usersError.message);
+    // }
+
+    // // 4. Create a quick lookup map (e.g., {'user-id-123': 'user@email.com'})
+    // const userEmailMap = users.reduce((acc, user) => {
+    //   acc[user.id] = user.email;
+    //   return acc;
+    // }, {});
+
+    // // 5. Combine the message data with the user email
+    // const messages = rawMessages.map((msg) => ({
+    //   ...msg,
+    //   firm_user: { email: userEmailMap[msg.firm_user_id] || "Unknown User" },
+    // }));
+    // --- END OF NEW LOGIC ---
+    // --- 3. Safely process the messages to add user emails ---
+    // const { data: rawMessages } = await supabaseAdmin
+    //   .from("communication_log")
+    //   .select("*")
+    //   .eq("case_id", caseId)
+    //   .order("created_at", { ascending: true });
+
+    // let messages = [];
+    // if (rawMessages && rawMessages.length > 0) {
+    //   const userIds = [...new Set(rawMessages.map((msg) => msg.firm_user_id))];
+    //   const { data: usersData } = await supabaseAdmin
+    //     .from("users")
+    //     .select("id, email")
+    //     .in("id", userIds);
+
+    //   const userEmailMap = (usersData || []).reduce((acc, user) => {
+    //     acc[user.id] = user.email;
+    //     return acc;
+    //   }, {});
+
+    //   messages = rawMessages.map((msg) => ({
+    //     ...msg,
+    //     firm_user: { email: userEmailMap[msg.firm_user_id] || "Unknown User" },
+    //   }));
+    // }
+    // --- THIS IS THE NEW, SIMPLER LOGIC FOR MESSAGES ---
+    // const { data: messagesData, error: messagesError } = await supabaseAdmin
+    //   .from("communication_log")
+    //   .select("*") // We can just get everything now
+    //   .eq("case_id", caseId)
+    //   .order("created_at", { ascending: true });
+
+    // if (messagesError) {
+    //   console.error("Could not fetch messages:", messagesError.message);
+    // }
+
+    // // Manually structure the data to match what the frontend expects
+    // const messages = (messagesData || []).map((msg) => ({
+    //   ...msg,
+    //   firm_user: { email: msg.user_email || "Unknown User" },
+    // }));
+    // --- END OF NEW LOGIC ---
+
     // 4. (Bonus) Create secure, time-limited download links for each document
+    // let signedDocuments = [];
+    // if (documents && documents.length > 0) {
+    //   const filePaths = documents.map((doc) => doc.file_path);
+    //   const { data: signedUrlsData, error: signedUrlError } =
+    //     await supabaseAdmin.storage
+    //       .from("case-files")
+    //       .createSignedUrls(filePaths, 60 * 60); // Links are valid for 1 hour
+
+    //   if (signedUrlError) {
+    //     throw signedUrlError;
+    //   }
+
+    //   // Match original document info with its new signed URL
+    //   signedDocuments = documents.map((doc) => {
+    //     const foundUrl = signedUrlsData.find(
+    //       (urlData) => urlData.path === doc.file_path
+    //     );
+    //     return {
+    //       ...doc,
+    //       signedUrl: foundUrl ? foundUrl.signedUrl : null,
+    //     };
+    //   });
+    // }
+    //  old ^
+
+    // --- THE SAFETY FIX FOR DOCUMENTS ---
     let signedDocuments = [];
+    // Only try to process documents if the 'documents' array actually exists and is not empty
     if (documents && documents.length > 0) {
-      const filePaths = documents.map((doc) => doc.file_path);
-      const { data: signedUrlsData, error: signedUrlError } =
-        await supabaseAdmin.storage
-          .from("case-files")
-          .createSignedUrls(filePaths, 60 * 60); // Links are valid for 1 hour
-
-      if (signedUrlError) {
-        throw signedUrlError;
-      }
-
-      // Match original document info with its new signed URL
-      signedDocuments = documents.map((doc) => {
-        const foundUrl = signedUrlsData.find(
-          (urlData) => urlData.path === doc.file_path
-        );
-        return {
+      const filePaths = documents.map((d) => d.file_path);
+      const { data: signedUrlsData } = await supabaseAdmin.storage
+        .from("case-files")
+        .createSignedUrls(filePaths, 3600);
+      if (signedUrlsData) {
+        signedDocuments = documents.map((doc) => ({
           ...doc,
-          signedUrl: foundUrl ? foundUrl.signedUrl : null,
-        };
-      });
+          signedUrl: signedUrlsData.find((u) => u.path === doc.file_path)
+            ?.signedUrl,
+        }));
+      }
     }
+    // --- END OF FIX ---
 
     // 5. Combine all data into a single response object
     const responseData = {
@@ -354,6 +472,7 @@ app.get("/api/cases/:caseId", authenticateToken, async (req, res) => {
       documents: signedDocuments, // Nested documents array
       latest_search: latestSearch,
       analyses: savedAnalyses || [],
+      // messages: messages || [], // Add the list of messages to our response
     };
 
     res.json(responseData);
@@ -368,7 +487,7 @@ app.get("/api/cases/:caseId", authenticateToken, async (req, res) => {
 // This endpoint gets existing draft data for a given token.
 app.get("/api/idd/:token/data", async (req, res) => {
   const { token } = req.params;
-
+  console.log("not alive");
   try {
     // 1. Find the case that corresponds to this token to get its ID
     const { data: caseData, error: caseError } = await supabaseAdmin
@@ -396,7 +515,26 @@ app.get("/api/idd/:token/data", async (req, res) => {
       return res.json({});
     }
 
-    res.json(disclosureData.data || {});
+    // --- NEW: Fetch messages ---
+    // const { data: messages, error: messagesError } = await supabaseAdmin
+    //   .from("communication_log")
+    //   .select("*")
+    //   .eq("case_id", caseData.id)
+    //   .order("created_at", { ascending: true });
+    // if (messagesError) {
+    //   console.error(
+    //     "Could not fetch messages for client:",
+    //     messagesError.message
+    //   );
+    // }
+
+    console.log("hi bitch");
+
+    res.json({
+      data: disclosureData?.data || {},
+      isSubmitted: !!disclosureData?.submitted_at,
+      // messages: messages || [], // Add messages to the response
+    });
   } catch (error) {
     console.error("Error fetching draft data:", error.message);
     res.status(404).json({ message: error.message });
@@ -880,6 +1018,228 @@ app.get(
     }
   }
 );
+
+// This endpoint handles a firm user manually uploading a prior art document
+app.post(
+  "/api/cases/:caseId/manual-prior-art",
+  authenticateToken,
+  upload.single("documentFile"),
+  async (req, res) => {
+    const { caseId } = req.params;
+    const { notes } = req.body; // Get the notes from the form
+    const file = req.file; // Get the file from multer
+    const firmUserId = req.user.sub;
+
+    if (!file) {
+      return res.status(400).json({ message: "A file is required." });
+    }
+
+    try {
+      // First, a security check to ensure the user owns the case
+      const { error: ownerError } = await supabaseAdmin
+        .from("cases")
+        .select("id")
+        .eq("id", caseId)
+        .eq("firm_user_id", firmUserId)
+        .single();
+      if (ownerError) {
+        throw new Error("Case not found or permission denied.");
+      }
+
+      // Construct the file path using the user and case ID
+      const filePath = `${firmUserId}/${caseId}/manual/${Date.now()}-${
+        file.originalname
+      }`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabaseAdmin.storage
+        .from("case-files")
+        .upload(filePath, file.buffer, { contentType: file.mimetype });
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Save the metadata to our 'case_documents' table
+      const { data, error: docError } = await supabaseAdmin
+        .from("case_documents")
+        .insert({
+          case_id: caseId,
+          file_name: file.originalname,
+          file_path: filePath,
+          storage_bucket: "case-files",
+          document_type: "manual_prior_art", // Set the type
+          notes: notes, // Save the notes
+        })
+        .select()
+        .single();
+      if (docError) {
+        throw docError;
+      }
+
+      res.status(201).json(data);
+    } catch (error) {
+      console.error("Error uploading manual prior art:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to upload document.", error: error.message });
+    }
+  }
+);
+
+// This endpoint posts a new message to the communication log
+// Replace the entire POST messages route with this one
+// app.post("/api/cases/:caseId/messages", authenticateToken, async (req, res) => {
+//   const { caseId } = req.params;
+//   const { message_text } = req.body;
+//   const firmUserId = req.user.sub;
+//   const firmUserEmail = req.user.email; // We get the email directly from the verified token
+
+//   if (!message_text) {
+//     return res.status(400).json({ message: "Message text cannot be empty." });
+//   }
+
+//   try {
+//     // Security check
+//     const { error: ownerError } = await supabaseAdmin
+//       .from("cases")
+//       .select("id")
+//       .eq("id", caseId)
+//       .eq("firm_user_id", firmUserId)
+//       .single();
+//     if (ownerError) {
+//       throw new Error("Case not found or permission denied.");
+//     }
+
+//     // 1. Insert the new message
+//     const { data: newMessage, error } = await supabaseAdmin
+//       .from("communication_log")
+//       .insert({
+//         case_id: caseId,
+//         firm_user_id: firmUserId,
+//         message_text: message_text,
+//       })
+//       .select()
+//       .single();
+
+//     if (error) {
+//       throw error;
+//     }
+
+//     // 2. Manually add the user's email to the response object
+//     const responseData = {
+//       ...newMessage,
+//       firm_user: { email: firmUserEmail },
+//     };
+
+//     res.status(201).json(responseData);
+//   } catch (error) {
+//     console.error("Error posting message:", error);
+//     res
+//       .status(500)
+//       .json({ message: "Failed to post message.", error: error.message });
+//   }
+// });
+
+// lucen-backend/server.js
+
+// This route now saves the user's email with the message
+// app.post("/api/cases/:caseId/messages", authenticateToken, async (req, res) => {
+//   const { caseId } = req.params;
+//   const { message_text } = req.body;
+//   const firmUserId = req.user.sub;
+//   const firmUserEmail = req.user.email; // We get the email from the verified token
+
+//   if (!message_text) {
+//     return res.status(400).json({ message: "Message text cannot be empty." });
+//   }
+
+//   try {
+//     // Security check is unchanged
+//     const { error: ownerError } = await supabaseAdmin
+//       .from("cases")
+//       .select("id")
+//       .eq("id", caseId)
+//       .eq("firm_user_id", firmUserId)
+//       .single();
+//     if (ownerError) {
+//       throw new Error("Case not found or permission denied.");
+//     }
+
+//     // Insert the new message WITH the email
+//     const { data, error } = await supabaseAdmin
+//       .from("communication_log")
+//       .insert({
+//         case_id: caseId,
+//         firm_user_id: firmUserId,
+//         message_text: message_text,
+//         user_email: firmUserEmail, // <-- Save the email here
+//         sender_type: "firm",
+//       })
+//       .select()
+//       .single();
+
+//     if (error) {
+//       throw error;
+//     }
+
+//     // The data we send back to the frontend to instantly display the new message
+//     const responseData = {
+//       ...data,
+//       // We add this firm_user object to match the structure the frontend expects
+//       firm_user: { email: firmUserEmail },
+//     };
+
+//     res.status(201).json(responseData);
+//   } catch (error) {
+//     console.error("Error posting message:", error);
+//     res
+//       .status(500)
+//       .json({ message: "Failed to post message.", error: error.message });
+//   }
+// });
+
+// PASTE THIS NEW ROUTE for clients to post messages
+// app.post("/api/idd/:token/messages", async (req, res) => {
+//   const { token } = req.params;
+//   const { message_text } = req.body;
+
+//   if (!message_text) {
+//     return res.status(400).json({ message: "Message text cannot be empty." });
+//   }
+
+//   try {
+//     // Security check: Find the case via the token
+//     const { data: caseData, error: caseError } = await supabaseAdmin
+//       .from("cases")
+//       .select("id")
+//       .eq("idd_secure_link_token", token)
+//       .single();
+//     if (caseError) {
+//       throw new Error("Invalid or expired submission link.");
+//     }
+
+//     // Insert the client's message
+//     const { data, error } = await supabaseAdmin
+//       .from("communication_log")
+//       .insert({
+//         case_id: caseData.id,
+//         message_text: message_text,
+//         sender_type: "client", // Mark this message as from the client
+//       })
+//       .select()
+//       .single();
+
+//     if (error) {
+//       throw error;
+//     }
+//     res.status(201).json(data);
+//   } catch (error) {
+//     console.error("Error posting client message:", error);
+//     res
+//       .status(500)
+//       .json({ message: "Failed to post message.", error: error.message });
+//   }
+// });
 
 // --- TEST ROUTE ---
 app.get("/api/test-route", (req, res) => {

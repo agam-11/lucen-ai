@@ -35,11 +35,13 @@ function ClientIddForm() {
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState("");
 
+  // const [messages, setMessages] = useState([]); // <-- NEW state for messages
+
   // useEffect to fetch existing draft data when the page loads
   useEffect(() => {
     const fetchDraftData = async () => {
       if (!token) {
-        setLoading(false);
+        setLoading(true);
         return;
       }
       try {
@@ -50,7 +52,11 @@ function ClientIddForm() {
           setLoading(false);
           return;
         }
-        const { data, isSubmitted: alreadySubmitted } = await response.json();
+        const {
+          data,
+          isSubmitted: alreadySubmitted,
+          // messages: loadedMessages,
+        } = await response.json();
 
         // Populate form fields with draft data if it exists
         if (alreadySubmitted) {
@@ -64,6 +70,7 @@ function ClientIddForm() {
           setNovelty(data.novelty || "");
           setKnownPriorArt(data.knownPriorArt || "");
         }
+        // setMessages(loadedMessages || []); // <-- Set the messages state
       } catch (error) {
         console.error("Could not fetch draft data:", error);
       } finally {
@@ -311,6 +318,12 @@ function ClientIddForm() {
           </form>
         </CardContent>
         <CardFooter className="flex justify-between items-center pt-6">
+          {/* <div>
+            <h3 className="text-lg font-semibold">Communication Log</h3>
+            <ClientCommunicationLog token={token} initialMessages={messages} />
+            {console.log("hie dawg" + messages)}
+          </div> */}
+
           <div className="text-sm text-green-600 font-medium">{saveStatus}</div>
           <div className="flex">
             <Button

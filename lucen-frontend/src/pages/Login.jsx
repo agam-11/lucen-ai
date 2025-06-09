@@ -37,10 +37,11 @@ function Login() {
     setError(null);
     setLoading(true);
     try {
-      const { data, error: signInError } = await supabase.auth.signIn({
-        email: email,
-        password: password,
-      });
+      const { data, error: signInError } =
+        await supabase.auth.signInWithPassword({
+          email: email,
+          password: password,
+        });
       signIn;
 
       if (signInError) {
