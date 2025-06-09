@@ -137,12 +137,38 @@ app.get("/api/idd/:token/data", async (req, res) => {
       });
     }
 
+    // --- NEW: Fetch shared documents ---
+    const { data: shared_documents } = await supabaseAdmin
+      .from("case_documents")
+      .select("*")
+      .eq("case_id", caseData.id)
+      .eq("is_shared", true) // Only get documents marked as shared
+      .order("created_at", { ascending: false });
+
+    let signed_documents = [];
+    if (shared_documents && shared_documents.length > 0) {
+      const filePaths = shared_documents.map((d) => d.file_path);
+      const { data: signedUrlsData } = await supabaseAdmin.storage
+        .from("case-files")
+        .createSignedUrls(filePaths, 3600);
+      if (signedUrlsData) {
+        signed_documents = shared_documents.map((doc) => ({
+          ...doc,
+          signedUrl: signedUrlsData.find((u) => u.path === doc.file_path)
+            ?.signedUrl,
+        }));
+      }
+    }
+    // --- END OF NEW LOGIC ---
+
     // Send back the data, and a flag indicating if it's been submitted.
     res.json({
       data: disclosureData.data || {},
       isSubmitted: !!disclosureData.submitted_at, // '!!' turns the value into a true boolean
       // messages: messages || [], // Add messages to the response
       firmComments: disclosureData?.firm_comments || null, // Add the comments to the response
+      sharedDocuments: signed_documents, // Add shared documents to the response
+      caseStatus: caseData.status, // <-- The crucial new piece of info
     });
   } catch (error) {
     res.status(404).json({ message: error.message });
@@ -1305,6 +1331,96 @@ app.post(
     }
   }
 );
+
+// This route lets a firm user share a document with the client
+app.patch(
+  "/api/documents/:docId/share",
+  authenticateToken,
+  async (req, res) => {
+    const { docId } = req.params;
+    const firmUserId = req.user.sub;
+
+    try {
+      // Security check: Ensure the firm user owns the case this document belongs to.
+      const { error: ownerError } = await supabaseAdmin
+        .from("case_documents")
+        .select("cases!inner(firm_user_id)")
+        .eq("id", docId)
+        .eq("cases.firm_user_id", firmUserId)
+        .single();
+      if (ownerError) {
+        throw new Error("Document not found or permission denied.");
+      }
+
+      // Update the document to be shared
+      const { data, error } = await supabaseAdmin
+        .from("case_documents")
+        .update({ is_shared: true, client_review_status: "pending" })
+        .eq("id", docId)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      // --- THIS IS THE NEW, CRITICAL STEP ---
+      // Also update the parent case's status to reflect this new phase
+      const { error: caseUpdateError } = await supabaseAdmin
+        .from("cases")
+        .update({ status: "Awaiting Client Approval" })
+        .eq("id", docData.case_id);
+      if (caseUpdateError) {
+        throw caseUpdateError;
+      }
+      // --- END OF NEW STEP ---
+
+      res.json(data);
+    } catch (error) {
+      console.error("Error sharing document:", error);
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
+
+// This route lets the client submit their review of a shared document
+app.patch("/api/idd/:token/documents/:docId/review", async (req, res) => {
+  const { token, docId } = req.params;
+  const { status, comments } = req.body;
+
+  if (!status || !["approved", "changes_requested"].includes(status)) {
+    return res.status(400).json({ message: "A valid status is required." });
+  }
+
+  try {
+    // Security check: Ensure the token is valid and matches the document's case
+    const { data: caseData, error: caseError } = await supabaseAdmin
+      .from("cases")
+      .select("id")
+      .eq("idd_secure_link_token", token)
+      .single();
+    if (caseError) {
+      throw new Error("Invalid or expired link.");
+    }
+
+    // Update the document review status
+    const { data, error } = await supabaseAdmin
+      .from("case_documents")
+      .update({ client_review_status: status, client_comments: comments })
+      .eq("id", docId)
+      .eq("case_id", caseData.id) // Final security check
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error submitting client review:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
 
 // --- TEST ROUTE ---
 app.get("/api/test-route", (req, res) => {

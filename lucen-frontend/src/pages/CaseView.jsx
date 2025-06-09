@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/accordion"; // Import Accordion
 import ManualPriorArtUploader from "../components/ManualPriorArtUploader";
 import RequestChangesForm from "../components/RequestChangesForm";
+import { Badge } from "@/components/ui/badge";
 
 // Add this helper function at the top of the file
 const getPatentId = (doc, index = 0) => {
@@ -330,6 +331,39 @@ function CaseView() {
       ...prev,
       documents: [...(prev.documents || []), newDocument],
     }));
+  };
+
+  // --- NEW HANDLER FUNCTION for sharing a document ---
+  const handleShareDocument = async (docId) => {
+    try {
+      const response = await fetch(
+        `http://localhost:3001/api/documents/${docId}/share`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+      const updatedDoc = await response.json();
+      if (!response.ok) {
+        throw new Error(updatedDoc.message);
+      }
+
+      // Update the state to reflect the change without a full page reload
+      setCaseDetails((prev) => ({
+        ...prev,
+        documents: prev.documents.map((doc) =>
+          doc.id === docId
+            ? { ...doc, is_shared: true, client_review_status: "pending" }
+            : doc
+        ),
+      }));
+    } catch (err) {
+      console.error("Failed to share document:", err);
+      // Optionally, show an error message to the user
+    }
   };
 
   if (isLoading) return <div className="p-8">Loading case details...</div>;
@@ -732,7 +766,7 @@ function CaseView() {
             />
 
             {/* --- Section for Uploaded Documents --- */}
-            <div className="mb-6">
+            {/* <div className="mb-6">
               <h2 className="text-xl font-semibold border-b pb-2 mb-3">
                 Associated Documents
               </h2>
@@ -757,6 +791,59 @@ function CaseView() {
                   </ul>
                 ) : (
                   <p className="text-gray-500">No documents were uploaded.</p>
+                )}
+              </div>
+            </div> */}
+            {/* --- UPDATED "Associated Documents" section --- */}
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold border-b pb-2 mb-3">
+                Associated Documents
+              </h2>
+              <div className="bg-white dark:bg-card p-4 rounded-lg shadow-sm">
+                {caseDetails.documents && caseDetails.documents.length > 0 ? (
+                  <ul className="space-y-3">
+                    {caseDetails.documents.map((doc) => (
+                      <li
+                        key={doc.id}
+                        className="flex justify-between items-center p-2 rounded-md hover:bg-muted/50"
+                      >
+                        <div>
+                          <a
+                            href={doc.signedUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 font-semibold hover:underline"
+                          >
+                            {doc.file_name}
+                          </a>
+                          {doc.notes && (
+                            <p className="text-sm text-muted-foreground">
+                              Notes: {doc.notes}
+                            </p>
+                          )}
+                          {doc.is_shared && (
+                            <Badge variant="secondary" className="mt-1">
+                              Shared with Client - Status:{" "}
+                              {doc.client_review_status}
+                            </Badge>
+                          )}
+                        </div>
+                        {!doc.is_shared && (
+                          <Button
+                            onClick={() => handleShareDocument(doc.id)}
+                            size="sm"
+                            variant="outline"
+                          >
+                            Share with Client
+                          </Button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-muted-foreground">
+                    No documents were uploaded.
+                  </p>
                 )}
               </div>
             </div>
