@@ -1,20 +1,29 @@
-// Example Logout Button
-import { supabase } from "../supabaseClient";
+// The new, improved LogoutButton.jsx
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../hooks/useAuth"; // Import our hook
 import { Button } from "./ui/button";
 
 function LogoutButton() {
+  const { signOut } = useAuth(); // Get the signOut function from our context
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
+    try {
+      await signOut();
+      // The onAuthStateChange listener in AuthProvider will handle redirecting,
+      // but we can also navigate immediately for a faster user experience.
+      navigate("/login");
+    } catch (error) {
       console.error("Error logging out:", error);
-    } else {
-      navigate("/login"); // Redirect to login after logout
     }
   };
 
-  return <Button onClick={handleLogout}>Logout</Button>;
+  // Add a variant to the button so it looks good in the header
+  return (
+    <Button onClick={handleLogout} variant="outline">
+      Logout
+    </Button>
+  );
 }
+
 export default LogoutButton;

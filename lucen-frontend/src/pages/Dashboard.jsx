@@ -3,6 +3,9 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import CreateCaseForm from "../components/CreateCaseForm";
+import SimpleFAB from "@/components/SimpleFAB";
+
+import { Plus } from "lucide-react";
 
 // Import shadcn/ui components
 import { Button } from "@/components/ui/button";
@@ -30,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import LogoutButton from "../components/LogoutButton";
 
 // Fetch cases function remains the same
 async function fetchCases(session) {
@@ -162,24 +166,27 @@ function Dashboard() {
     <div className="p-4 sm:p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold">Dashboard</h1>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>+ Create New Case</Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Create New Patent Case</DialogTitle>
-              <DialogDescription>
-                Enter the initial details for the new case. A secure link will
-                be generated for the client.
-              </DialogDescription>
-            </DialogHeader>
-            <CreateCaseForm
-              onCaseCreated={handleCaseCreated}
-              setOpen={setIsDialogOpen}
-            />
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center space-x-2">
+          {/* <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>+ Create New Case</Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Create New Patent Case</DialogTitle>
+                <DialogDescription>
+                  Enter the initial details for the new case. A secure link will
+                  be generated for the client.
+                </DialogDescription>
+              </DialogHeader>
+              <CreateCaseForm
+                onCaseCreated={handleCaseCreated}
+                setOpen={setIsDialogOpen}
+              />
+            </DialogContent>
+          </Dialog> */}
+          <LogoutButton /> {/* <-- ADD YOUR COMPONENT HERE */}
+        </div>
       </div>
 
       <Card>
@@ -191,6 +198,29 @@ function Dashboard() {
         </CardHeader>
         <CardContent>{renderContent()}</CardContent>
       </Card>
+      {/* --- PASTE THIS NEW FLOATING BUTTON CODE HERE --- */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogTrigger asChild>
+          {/* <Button className="fixed bottom-8 right-8 h-16 w-16 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700">
+            <Plus className="!h-7 !w-7" />
+          </Button> */}
+          <SimpleFAB></SimpleFAB>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Create New Patent Case</DialogTitle>
+            <DialogDescription>
+              Enter the initial details for the new case. A secure link will be
+              generated for the client.
+            </DialogDescription>
+          </DialogHeader>
+          <CreateCaseForm
+            onCaseCreated={handleCaseCreated}
+            setOpen={setIsDialogOpen}
+          />
+        </DialogContent>
+      </Dialog>
+      {/* --- END OF NEW CODE --- */}
     </div>
   );
 }

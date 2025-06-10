@@ -88,7 +88,7 @@ function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background dark">
+    <div className="min-h-screen flex items-center justify-center bg-background">
       <Card className={"w-full max-w-lg"}>
         {/* Replace with shadcn/ui Card or similar for styling */}
         <CardHeader>

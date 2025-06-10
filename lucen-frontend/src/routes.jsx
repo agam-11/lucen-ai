@@ -2,6 +2,8 @@ import Register from "./pages/Register";
 import Login from "./pages/Login";
 import { LoginForm } from "./components/login-form";
 import App from "./App.jsx";
+import HomePage from "./pages/HomePage";
+
 import Dashboard from "./pages/Dashboard";
 
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -12,7 +14,7 @@ import DraftingStudioPage from "./pages/DraftingStudioPage";
 const routes = [
   {
     path: "/",
-    element: <App />,
+    element: <HomePage />,
   },
   {
     path: "/register",
