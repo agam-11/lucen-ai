@@ -100,7 +100,9 @@ function AiDraftingStudio({ caseId }) {
         // We set loading to true for the Generate button to show it's busy
         setIsLoading(true);
         const response = await fetch(
-          `http://localhost:3001/api/cases/${caseId}/draft-section/${sectionType}`,
+          `${
+            import.meta.env.VITE_API_BASE_URL
+          }/api/cases/${caseId}/draft-section/${sectionType}`,
           {
             headers: { Authorization: `Bearer ${session.access_token}` },
           }
@@ -136,7 +138,7 @@ function AiDraftingStudio({ caseId }) {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/cases/${caseId}/draft-section`,
+        `${import.meta.env.VITE_API_BASE_URL}/${caseId}/draft-section`,
         {
           method: "POST",
           headers: {
@@ -180,7 +182,9 @@ function AiDraftingStudio({ caseId }) {
     try {
       const htmlContent = editor.getHTML(); // Get content as an HTML string
       const response = await fetch(
-        `http://localhost:3001/api/cases/${caseId}/draft-section`,
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/api/cases/${caseId}/draft-section`,
         {
           method: "PUT",
           headers: {

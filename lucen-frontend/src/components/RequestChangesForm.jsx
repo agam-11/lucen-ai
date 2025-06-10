@@ -24,7 +24,9 @@ function RequestChangesForm({ caseId, onRequestSent }) {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/cases/${caseId}/request-changes`,
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/api/cases/${caseId}/request-changes`,
         {
           method: "POST",
           headers: {

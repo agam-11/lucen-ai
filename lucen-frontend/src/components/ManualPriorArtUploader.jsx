@@ -29,7 +29,9 @@ function ManualPriorArtUploader({ caseId, onUploadSuccess }) {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/cases/${caseId}/manual-prior-art`,
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/api/cases/${caseId}/manual-prior-art`,
         {
           method: "POST",
           headers: { Authorization: `Bearer ${session.access_token}` },

@@ -33,11 +33,14 @@ import { Badge } from "@/components/ui/badge";
 
 // Fetch cases function remains the same
 async function fetchCases(session) {
-  const response = await fetch("http://localhost:3001/api/cases", {
-    headers: {
-      Authorization: `Bearer ${session.access_token}`,
-    },
-  });
+  const response = await fetch(
+    `${import.meta.env.VITE_API_BASE_URL}/api/cases`,
+    {
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    }
+  );
   if (!response.ok) {
     throw new Error("Failed to fetch cases");
   }

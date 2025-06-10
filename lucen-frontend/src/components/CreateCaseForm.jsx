@@ -31,18 +31,21 @@ function CreateCaseForm({ onCaseCreated, setOpen }) {
     }
 
     try {
-      const response = await fetch("http://localhost:3001/api/cases", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          client_name: clientName,
-          client_email: clientEmail,
-          invention_title_snippet: titleSnippet,
-        }),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/cases`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            client_name: clientName,
+            client_email: clientEmail,
+            invention_title_snippet: titleSnippet,
+          }),
+        }
+      );
 
       const newCase = await response.json();
       if (!response.ok) {

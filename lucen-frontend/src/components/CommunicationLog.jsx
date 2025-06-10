@@ -18,7 +18,7 @@ function CommunicationLog({ caseId, initialMessages = [] }) {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/cases/${caseId}/messages`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/cases/${caseId}/messages`,
         {
           method: "POST",
           headers: {

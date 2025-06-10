@@ -75,7 +75,7 @@ function CaseView() {
     setIsLoading(true);
     try {
       const response = await fetch(
-        `http://localhost:3001/api/cases/${caseId}`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/cases/${caseId}`,
         {
           headers: { Authorization: `Bearer ${session.access_token}` },
         }
@@ -150,7 +150,9 @@ function CaseView() {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/cases/${caseId}/extract-keywords`,
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/api/cases/${caseId}/extract-keywords`,
         {
           method: "POST",
           headers: {
@@ -197,7 +199,7 @@ function CaseView() {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/cases/${caseId}/search`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/cases/${caseId}/search`,
         {
           method: "POST",
           headers: {
@@ -235,7 +237,9 @@ function CaseView() {
       console.log("2. Preparing to fetch analysis from the backend...");
 
       const response = await fetch(
-        `http://localhost:3001/api/cases/${caseId}/analyze-prior-art`,
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/api/cases/${caseId}/analyze-prior-art`,
         {
           method: "POST",
           headers: {
