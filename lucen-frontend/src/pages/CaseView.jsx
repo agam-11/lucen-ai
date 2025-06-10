@@ -777,6 +777,17 @@ function CaseView() {
 
         {caseDetails.invention_disclosure ? (
           <>
+            {/* --- PASTE THE NEW CODE BLOCK HERE --- */}
+            {caseDetails.invention_disclosure.firm_comments && (
+              <Alert variant="neutral" className="mb-6">
+                <AlertTitle>Your Last Feedback to Client</AlertTitle>
+                <AlertDescription className="whitespace-pre-wrap">
+                  {caseDetails.invention_disclosure.firm_comments}
+                </AlertDescription>
+              </Alert>
+            )}
+            {/* --- END OF NEW CODE BLOCK --- */}
+
             <DetailSection
               title="Inventor(s) Details"
               data={disclosureData.inventorDetails}
