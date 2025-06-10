@@ -118,3 +118,41 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* TipTap Editor CSS */
+/* Add basic styling for the Tiptap editor */
+.ProseMirror {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid hsl(var(--input));
+  border-radius: var(--radius);
+}
+.ProseMirror:focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  border-color: hsl(var(--ring));
+}
+.ProseMirror > * + * {
+  margin-top: 0.75em;
+}
+/* Styling for lists inside the Tiptap editor */
+.ProseMirror ul {
+  list-style-type: disc; /* This adds the bullet points */
+  padding-left: 2rem; /* This adds space for the bullet points */
+}
+
+.ProseMirror ol {
+  list-style-type: decimal; /* This adds the numbers */
+  padding-left: 2rem; /* This adds space for the numbers */
+}
+
+/* Styling for the Tiptap placeholder text */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+  opacity: 0.5; /* <-- ADD THIS LINE */
+}
+
+/* TipTap Editor CSS ENDS*/
