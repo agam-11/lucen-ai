@@ -19,19 +19,19 @@ const openai = new OpenAI({
 
 app.use(cors()); // Enable CORS for all routes
 app.use(express.json()); // Middleware to parse JSON bodies
-// --- PASTE THIS NEW BLOCK HERE ---
-// Middleware to prevent API response caching
-app.use((req, res, next) => {
-  res.setHeader(
-    "Cache-Control",
-    "no-store, no-cache, must-revalidate, proxy-revalidate"
-  );
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-  res.setHeader("Surrogate-Control", "no-store");
-  next();
-});
-// --- END OF NEW BLOCK ---
+// // --- PASTE THIS NEW BLOCK HERE ---
+// // Middleware to prevent API response caching
+// app.use((req, res, next) => {
+//   res.setHeader(
+//     "Cache-Control",
+//     "no-store, no-cache, must-revalidate, proxy-revalidate"
+//   );
+//   res.setHeader("Pragma", "no-cache");
+//   res.setHeader("Expires", "0");
+//   res.setHeader("Surrogate-Control", "no-store");
+//   next();
+// });
+// // --- END OF NEW BLOCK ---
 
 app.get("/", (req, res) => {
   res.send("Lucen Backend is running!");
