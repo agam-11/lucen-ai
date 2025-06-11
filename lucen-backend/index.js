@@ -109,8 +109,14 @@ app.get("/api/cases", authenticateToken, async (req, res) => {
 // This endpoint gets existing draft data AND checks submission status.
 app.get("/api/idd/:token/data", async (req, res) => {
   const { token } = req.params;
+  // --- STEP 1: Log the incoming request ---
+  console.log(`--- LOG: Received request for /api/idd/${token}/data ---`);
+  console.log(`--- LOG: Timestamp: ${new Date().toISOString()} ---`);
+
   console.log("hie dawg from server");
   try {
+    console.log(`--- LOG: Looking up case with token: ${token} ---`);
+
     const { data: caseData, error: caseError } = await supabaseAdmin
       .from("cases")
       .select("id, status")
@@ -118,6 +124,11 @@ app.get("/api/idd/:token/data", async (req, res) => {
       .single();
 
     if (caseError) {
+      console.error(
+        `--- LOG: ERROR finding case. Supabase error:`,
+        caseError.message
+      );
+
       throw new Error("Invalid or expired submission link.");
     }
 
@@ -174,6 +185,10 @@ app.get("/api/idd/:token/data", async (req, res) => {
       }
     }
     // --- END OF NEW LOGIC ---
+    console.log(
+      `--- LOG: Found existing disclosure. Has submitted_at: ${!!disclosureData.submitted_at} ---`
+    );
+    console.log("--- LOG: Sending final response payload:", responsePayload);
 
     // Send back the data, and a flag indicating if it's been submitted.
     res.json({
@@ -533,62 +548,62 @@ app.get("/api/cases/:caseId", authenticateToken, async (req, res) => {
 });
 
 // This endpoint gets existing draft data for a given token.
-app.get("/api/idd/:token/data", async (req, res) => {
-  const { token } = req.params;
-  console.log("not alive");
-  try {
-    // 1. Find the case that corresponds to this token to get its ID
-    const { data: caseData, error: caseError } = await supabaseAdmin
-      .from("cases")
-      .select("id")
-      .eq("idd_secure_link_token", token)
-      .single();
+// app.get("/api/idd/:token/data", async (req, res) => {
+//   const { token } = req.params;
+//   console.log("not alive");
+//   try {
+//     // 1. Find the case that corresponds to this token to get its ID
+//     const { data: caseData, error: caseError } = await supabaseAdmin
+//       .from("cases")
+//       .select("id")
+//       .eq("idd_secure_link_token", token)
+//       .single();
 
-    if (caseError || !caseData) {
-      throw new Error("Invalid or expired submission link.");
-    }
-    const caseId = caseData.id;
-    console.log("madarchod endpoint");
+//     if (caseError || !caseData) {
+//       throw new Error("Invalid or expired submission link.");
+//     }
+//     const caseId = caseData.id;
+//     console.log("madarchod endpoint");
 
-    // 2. Look for an existing invention disclosure for that case
-    const { data: disclosureData, error: disclosureError } = await supabaseAdmin
-      .from("invention_disclosures")
-      .select("data") // We only need the 'data' field
-      .eq("case_id", caseId)
-      .single();
+//     // 2. Look for an existing invention disclosure for that case
+//     const { data: disclosureData, error: disclosureError } = await supabaseAdmin
+//       .from("invention_disclosures")
+//       .select("data") // We only need the 'data' field
+//       .eq("case_id", caseId)
+//       .single();
 
-    // If a disclosure exists, send its data. If not, send an empty object.
-    if (disclosureError) {
-      // This will likely error if no row is found, which is okay.
-      // It just means no draft has been saved yet.
-      return res.json({});
-    }
+//     // If a disclosure exists, send its data. If not, send an empty object.
+//     if (disclosureError) {
+//       // This will likely error if no row is found, which is okay.
+//       // It just means no draft has been saved yet.
+//       return res.json({});
+//     }
 
-    // --- NEW: Fetch messages ---
-    // const { data: messages, error: messagesError } = await supabaseAdmin
-    //   .from("communication_log")
-    //   .select("*")
-    //   .eq("case_id", caseData.id)
-    //   .order("created_at", { ascending: true });
-    // if (messagesError) {
-    //   console.error(
-    //     "Could not fetch messages for client:",
-    //     messagesError.message
-    //   );
-    // }
+//     // --- NEW: Fetch messages ---
+//     // const { data: messages, error: messagesError } = await supabaseAdmin
+//     //   .from("communication_log")
+//     //   .select("*")
+//     //   .eq("case_id", caseData.id)
+//     //   .order("created_at", { ascending: true });
+//     // if (messagesError) {
+//     //   console.error(
+//     //     "Could not fetch messages for client:",
+//     //     messagesError.message
+//     //   );
+//     // }
 
-    console.log("hi bitch");
+//     console.log("hi bitch");
 
-    res.json({
-      data: disclosureData?.data || {},
-      isSubmitted: !!disclosureData?.submitted_at,
-      // messages: messages || [], // Add messages to the response
-    });
-  } catch (error) {
-    console.error("Error fetching draft data:", error.message);
-    res.status(404).json({ message: error.message });
-  }
-});
+//     res.json({
+//       data: disclosureData?.data || {},
+//       isSubmitted: !!disclosureData?.submitted_at,
+//       // messages: messages || [], // Add messages to the response
+//     });
+//   } catch (error) {
+//     console.error("Error fetching draft data:", error.message);
+//     res.status(404).json({ message: error.message });
+//   }
+// });
 
 // This endpoint uses an LLM to extract keywords from a submitted IDD
 app.post(
