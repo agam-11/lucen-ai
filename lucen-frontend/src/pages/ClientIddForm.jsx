@@ -56,7 +56,7 @@ function ClientIddForm() {
       }
       try {
         const response = await fetch(
-          `http://localhost:3001/api/idd/${token}/data`
+          `${import.meta.env.VITE_API_BASE_URL}/api/idd/${token}/data`
         );
         if (!response.ok) {
           setLoading(false);
@@ -112,11 +112,14 @@ function ClientIddForm() {
     setLoading(true);
     setSaveStatus("");
     try {
-      const response = await fetch(`http://localhost:3001/api/idd/${token}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(getFormDataObject()),
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/idd/${token}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(getFormDataObject()),
+        }
+      );
 
       const result = await response.json();
       if (!response.ok) throw new Error(result.message);
@@ -146,10 +149,13 @@ function ClientIddForm() {
     }
 
     try {
-      const response = await fetch(`http://localhost:3001/api/idd/${token}`, {
-        method: "POST",
-        body: submissionData,
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/idd/${token}`,
+        {
+          method: "POST",
+          body: submissionData,
+        }
+      );
 
       const result = await response.json();
       if (!response.ok) throw new Error(result.message);

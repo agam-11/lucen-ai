@@ -15,7 +15,7 @@ function ClientCommunicationLog({ token, initialMessages = [] }) {
     setIsPosting(true);
     try {
       const response = await fetch(
-        `http://localhost:3001/api/idd/${token}/messages`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/idd/${token}/messages`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

@@ -15,7 +15,9 @@ function ClientReviewSection({ token, sharedDocuments, onReviewSubmit }) {
     setIsSubmitting(docId);
     try {
       const response = await fetch(
-        `http://localhost:3001/api/idd/${token}/documents/${docId}/review`,
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/api/idd/${token}/documents/${docId}/review`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },

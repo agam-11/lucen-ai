@@ -294,7 +294,9 @@ function CaseView() {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/analyses/${analysisId}/status`,
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/api/analyses/${analysisId}/status`,
         {
           method: "PATCH",
           headers: {
@@ -346,7 +348,7 @@ function CaseView() {
 
     try {
       const response = await fetch(
-        `http://localhost:3001/api/documents/${docId}/share`,
+        `${import.meta.env.VITE_API_BASE_URL}/api/documents/${docId}/share`,
         {
           method: "PATCH",
           headers: {
