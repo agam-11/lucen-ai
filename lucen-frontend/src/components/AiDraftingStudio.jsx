@@ -138,7 +138,9 @@ function AiDraftingStudio({ caseId }) {
 
     try {
       const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/${caseId}/draft-section`,
+        `${
+          import.meta.env.VITE_API_BASE_URL
+        }/api/cases/${caseId}/draft-section`,
         {
           method: "POST",
           headers: {

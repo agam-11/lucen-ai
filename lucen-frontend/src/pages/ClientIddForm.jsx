@@ -50,8 +50,9 @@ function ClientIddForm() {
   // useEffect to fetch existing draft data when the page loads
   useEffect(() => {
     const fetchDraftData = async () => {
+      setLoading(true);
       if (!token) {
-        setLoading(true);
+        setLoading(false);
         return;
       }
       try {
@@ -68,14 +69,14 @@ function ClientIddForm() {
           // messages: loadedMessages,
           firmComments: loadedComments,
           sharedDocuments: loadedDocs,
-          caseStatus: caseStatus,
+          caseStatus: dbcaseStatus,
         } = await response.json();
 
         // Populate form fields with draft data if it exists
-        setCaseStatus(caseStatus); // This is now our master switch
+        setCaseStatus(dbcaseStatus); // This is now our master switch
 
         console.log("here we go from useeffect");
-        console.log("db thing" + caseStatus);
+        console.log(`ma chda ${dbcaseStatus}`);
 
         // Populate form fields with draft data if it exists
         setInventorDetails(data.inventorDetails || "");
@@ -96,6 +97,7 @@ function ClientIddForm() {
     };
     fetchDraftData();
   }, [token]);
+  console.log(` case: ${caseStatus}`);
 
   // Helper function to get the current state of text fields
   const getFormDataObject = () => ({
@@ -253,11 +255,11 @@ function ClientIddForm() {
             <h3 className="text-lg font-semibold border-b pb-2 mb-3">
               Documents for Your Review
             </h3>
-            <ClientReviewSection
+            {/* <ClientReviewSection
               token={token}
               sharedDocuments={sharedDocuments}
               onReviewSubmit={handleReviewSubmit}
-            />
+            /> */}
           </div>
 
           {/* --- NEW UI SECTION to display comments --- */}
