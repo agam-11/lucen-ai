@@ -188,7 +188,7 @@ app.get("/api/idd/:token/data", async (req, res) => {
     console.log(
       `--- LOG: Found existing disclosure. Has submitted_at: ${!!disclosureData.submitted_at} ---`
     );
-    console.log("--- LOG: Sending final response payload:", responsePayload);
+    // console.log("--- LOG: Sending final response payload:", responsePayload);
 
     // Send back the data, and a flag indicating if it's been submitted.
     res.json({
@@ -552,7 +552,7 @@ app.get("/api/cases/:caseId", authenticateToken, async (req, res) => {
 //   const { token } = req.params;
 //   console.log("not alive");
 //   try {
-//     // 1. Find the case that corresponds to this token to get its ID
+//     //     // 1. Find the case that corresponds to this token to get its ID
 //     const { data: caseData, error: caseError } = await supabaseAdmin
 //       .from("cases")
 //       .select("id")
@@ -565,14 +565,14 @@ app.get("/api/cases/:caseId", authenticateToken, async (req, res) => {
 //     const caseId = caseData.id;
 //     console.log("madarchod endpoint");
 
-//     // 2. Look for an existing invention disclosure for that case
+//     //     // 2. Look for an existing invention disclosure for that case
 //     const { data: disclosureData, error: disclosureError } = await supabaseAdmin
 //       .from("invention_disclosures")
 //       .select("data") // We only need the 'data' field
 //       .eq("case_id", caseId)
 //       .single();
 
-//     // If a disclosure exists, send its data. If not, send an empty object.
+//     //     // If a disclosure exists, send its data. If not, send an empty object.
 //     if (disclosureError) {
 //       // This will likely error if no row is found, which is okay.
 //       // It just means no draft has been saved yet.
@@ -580,19 +580,19 @@ app.get("/api/cases/:caseId", authenticateToken, async (req, res) => {
 //     }
 
 //     // --- NEW: Fetch messages ---
-//     // const { data: messages, error: messagesError } = await supabaseAdmin
-//     //   .from("communication_log")
-//     //   .select("*")
-//     //   .eq("case_id", caseData.id)
-//     //   .order("created_at", { ascending: true });
-//     // if (messagesError) {
-//     //   console.error(
-//     //     "Could not fetch messages for client:",
-//     //     messagesError.message
-//     //   );
-//     // }
+//     const { data: messages, error: messagesError } = await supabaseAdmin
+//       .from("communication_log")
+//       .select("*")
+//       .eq("case_id", caseData.id)
+//       .order("created_at", { ascending: true });
+//     if (messagesError) {
+//       console.error(
+//         "Could not fetch messages for client:",
+//         messagesError.message
+//       );
+//     }
 
-//     console.log("hi bitch");
+//     // console.log("hi bitch");
 
 //     res.json({
 //       data: disclosureData?.data || {},
@@ -820,7 +820,7 @@ app.post(
 
       // --- THIS IS THE NEW STEP FOR WEEK 12 ---
       // 4. Save the analysis to our database
-      const { error: saveError } = await supabaseAdmin
+      const { data: savedAnalysis, error: saveError } = await supabaseAdmin
         .from("ai_prior_art_analysis")
         .insert({
           case_id: caseId,
@@ -829,7 +829,9 @@ app.post(
           similarities: analysisJson.similarities,
           differences: analysisJson.differences,
           similarity_score: analysisJson.similarityScore,
-        });
+        })
+        .select()
+        .single();
 
       if (saveError) {
         // If saving fails, we log it but proceed, as the user still got the analysis.
@@ -837,7 +839,7 @@ app.post(
       }
       // --- END OF NEW STEP ---
 
-      res.json(analysisJson);
+      res.json(savedAnalysis);
     } catch (error) {
       console.error("Error analyzing prior art:", error);
       res.status(500).json({
