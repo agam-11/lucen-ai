@@ -113,6 +113,7 @@ function CaseView() {
           "4. Transformed analyses into state object:",
           analysesObject
         );
+        console.log(`analyses object: ${analysesObject}`);
 
         setAnalyses(analysesObject);
       }
@@ -638,11 +639,17 @@ function CaseView() {
                                   </AccordionTrigger>
                                   <AccordionContent className="p-4 bg-gray-50 dark:bg-gray-800 rounded-b-md">
                                     <h4 className="font-semibold">Summary:</h4>
-                                    <p className="mb-3">{analysis.summary}</p>
+                                    <p className="mb-3">
+                                      {analysis.analysis_summary}
+                                      {/* changed here */}
+                                    </p>
 
                                     <h4 className="font-semibold">
                                       Similarity Score:{" "}
-                                      {analysis.similarityScore}/10
+                                      {analysis.similarity_score}/10
+                                      {console.log(
+                                        ` similarity score ${analysis.similarity_score}`
+                                      )}
                                     </h4>
 
                                     <h4 className="font-semibold mt-3">
