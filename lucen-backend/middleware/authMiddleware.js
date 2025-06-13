@@ -1,5 +1,6 @@
 // lucen-backend/middleware/authMiddleware.js
 const jwt = require("jsonwebtoken");
+require("dotenv").config();
 
 const SUPABASE_JWT_SECRET = process.env.SUPABASE_JWT_SECRET;
 
