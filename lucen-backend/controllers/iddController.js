@@ -33,8 +33,6 @@ exports.getIddData = async (req, res) => {
       .select("data, submitted_at, firm_comments") // Also select the submitted_at timestamp
       .eq("case_id", caseData.id)
       .single();
-    console.log("FUCKKK");
-    console.log(disclosureData);
 
     let decryptedData = null;
     if (disclosureData && disclosureData.data) {

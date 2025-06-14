@@ -99,14 +99,12 @@ exports.getCaseDetails = async (req, res) => {
     if (disclosureError) {
       console.error("Could not fetch disclosure:", disclosureError.message);
     }
-    console.log(disclosure.data);
 
     let finalDisclosure = null;
     if (disclosure && disclosure.data) {
       const decryptedData = decryptData(disclosure.data);
       finalDisclosure = { ...disclosure, data: decryptedData };
     }
-    console.log(disclosure);
 
     // 3. Fetch associated documents
     const { data: documents, error: docError } = await supabaseAdmin

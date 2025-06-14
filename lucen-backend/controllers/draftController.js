@@ -9,10 +9,10 @@ const openai = new OpenAI({
 const { encryptData } = require("../utils/encryption");
 const { decryptData } = require("../utils/encryption");
 
+// Replace the entire generateDraftSection function in draftController.js
 exports.generateDraftSection = async (req, res) => {
   const { caseId } = req.params;
   const firmUserId = req.user.sub;
-  // Get the section type and instructions from the frontend request
   const { sectionType, attorneyInstructions } = req.body;
 
   if (!sectionType) {
@@ -20,7 +20,11 @@ exports.generateDraftSection = async (req, res) => {
   }
 
   try {
-    // 1. Security Check & Fetch IDD to get the context for our prompt
+    // --- THIS IS THE NEW, SMARTER LOGIC ---
+
+    // 1. Fetch the IDD AND all prior art analyses marked as 'relevant'
+    // We use a more advanced query to get linked data.
+    // 1. Security Check & Fetch IDD (First, separate query)
     const { data: disclosureData, error: disclosureError } = await supabaseAdmin
       .from("invention_disclosures")
       .select("data, cases!inner(firm_user_id)")
@@ -32,65 +36,79 @@ exports.generateDraftSection = async (req, res) => {
       throw new Error("Invention disclosure not found or permission denied.");
     }
 
+    // 2. Fetch all prior art analyses marked as 'relevant' (Second, separate query)
+    const { data: relevantAnalyses, error: analysesError } = await supabaseAdmin
+      .from("ai_prior_art_analysis")
+      .select("analysis_summary")
+      .eq("case_id", caseId)
+      .eq("review_status", "relevant");
+
+    if (analysesError) {
+      // It's okay if this fails, we just won't have prior art context
+      console.error(
+        "Could not fetch relevant analyses:",
+        analysesError.message
+      );
+    }
+
+    // 2. Prepare the context for the AI
     const idd = decryptData(disclosureData.data);
     if (!idd) {
       throw new Error("Failed to decrypt invention data.");
     }
 
-    const fullInventionText = `
-      Title: ${idd.inventionTitle}
-      Background: ${idd.background}
-      Detailed Description: ${idd.detailedDescription}
-      Novelty: ${idd.novelty}
-    `;
+    const inventionText = `Title: ${idd.inventionTitle}. Description: ${idd.detailedDescription}. Novelty: ${idd.novelty}`;
 
-    // 2. Develop initial prompt templates for different sections
+    // Format the relevant prior art summaries into a clean list
+    const relevantPriorArtSummaries = (relevantAnalyses || [])
+      .map((analysis, index) => `${index + 1}. ${analysis.analysis_summary}`)
+      .join("\n");
+
+    // 3. Develop specific, context-aware prompts
     let specificInstruction = "";
     switch (sectionType) {
       case "Background":
-        specificInstruction =
-          "Draft a 'Background of the Invention' section. It should describe the general field of the invention and the problems with existing solutions (the prior art).";
+        specificInstruction = `Draft a 'Background of the Invention' section. First, introduce the general field from the Invention Disclosure. Then, you MUST discuss the problems with existing solutions by referencing the provided Prior Art Summaries. Conclude by explaining the need for an improved solution.`;
         break;
       case "Summary":
-        specificInstruction =
-          "Draft a 'Summary of the Invention' section. It should provide a broad overview of the invention and its main advantages, without getting into excessive detail.";
+        specificInstruction = `Draft a 'Summary of the Invention' section. Provide a broad overview of the invention from the Invention Disclosure, and briefly contrast it with the key concepts mentioned in the Prior Art Summaries to highlight its advantages.`;
         break;
-      // You can add more cases here later, like 'Detailed Description'
       default:
-        return res
-          .status(400)
-          .json({ message: "Invalid section type specified." });
+        return res.status(400).json({ message: "Invalid section type." });
     }
 
-    // 3. Create the final, detailed prompt for the AI
+    // 4. Create the final, powerful prompt
     const prompt = `
-      You are an expert patent attorney's assistant. Your task is to draft a section of a patent application based on the provided invention disclosure. The tone should be formal, clear, and precise.
+            You are an expert patent drafter. Your task is to draft a section of a patent application. You must synthesize information from both the invention disclosure and the provided prior art.
 
-      **Section to Draft:** ${sectionType}
-      **Your main instruction:** ${specificInstruction}
-      **Additional instructions from the attorney:** "${
-        attorneyInstructions || "None"
-      }"
+            **Section to Draft:** ${sectionType}
+            **Your main instruction:** ${specificInstruction}
+            **Additional instructions from the attorney:** "${
+              attorneyInstructions || "None"
+            }"
 
-      **Invention Disclosure Context:**
-      """
-      ${fullInventionText}
-      """
+            **Invention Disclosure Context:**
+            """
+            ${inventionText}
+            """
 
-      Draft the requested section below:
-    `;
+            **Relevant Prior Art Summaries to Discuss:**
+            """
+            ${relevantPriorArtSummaries || "No specific prior art provided."}
+            """
 
-    // 4. Call the OpenAI API
+            Draft the requested section below:
+        `;
+
+    // 5. Call the AI (unchanged)
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // A smart model is needed for drafting
+      model: "gpt-4o-mini",
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.6, // Allow for slightly more creative and natural language
-      max_tokens: 800, // Allow for a longer, more detailed response
+      temperature: 0.6,
+      max_tokens: 800,
     });
 
     const draftText = response.choices[0].message.content.trim();
-
-    // 5. Send the generated draft text back to the frontend
     res.json({ draftText: draftText });
   } catch (error) {
     console.error("Error drafting section:", error);
