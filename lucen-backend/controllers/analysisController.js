@@ -6,6 +6,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const { decryptData } = require("../utils/encryption");
+
 exports.analyzePriorArt = async (req, res) => {
   const { caseId } = req.params;
   const firmUserId = req.user.sub;
@@ -28,7 +30,12 @@ exports.analyzePriorArt = async (req, res) => {
       throw new Error("Invention disclosure not found or permission denied.");
     }
 
-    const idd = disclosureData.data;
+    const idd = decryptData(disclosureData.data);
+    if (!idd) {
+      throw new Error("Failed to decrypt invention disclosure data.");
+    }
+    // --- END OF FIX ---
+
     const inventionText = `Title: ${idd.inventionTitle}. Description: ${idd.detailedDescription}. Novelty: ${idd.novelty}`;
     const priorArtText = `Title: ${priorArtDocument.title}. Snippet: ${priorArtDocument.snippet}`;
 

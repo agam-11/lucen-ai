@@ -1,5 +1,7 @@
 const supabaseAdmin = require("../config/supabaseClient");
 require("dotenv").config();
+const { encryptData } = require("../utils/encryption");
+const { decryptData } = require("../utils/encryption");
 
 exports.getIddData = async (req, res) => {
   const { token } = req.params;
@@ -31,27 +33,19 @@ exports.getIddData = async (req, res) => {
       .select("data, submitted_at, firm_comments") // Also select the submitted_at timestamp
       .eq("case_id", caseData.id)
       .single();
+    console.log("FUCKKK");
+    console.log(disclosureData);
 
-    // --- NEW: Fetch messages ---
-    // const { data: messages, error: messagesError } = await supabaseAdmin
-    //   .from("communication_log")
-    //   .select("*")
-    //   .eq("case_id", caseData.id)
-    //   .order("created_at", { ascending: true });
-    // if (messagesError) {
-    //   console.error(
-    //     "Could not fetch messages for client:",
-    //     messagesError.message
-    //   );
-    // }
-    // console.log("dserver");
+    let decryptedData = null;
+    if (disclosureData && disclosureData.data) {
+      decryptedData = decryptData(disclosureData.data);
+    }
 
     // If no disclosure is found, it's not submitted and has no data.
     if (disclosureError) {
       return res.json({
         data: {},
         isSubmitted: false,
-        // messages: messages || [],
         caseStatus: caseData.status, // <-- The crucial new piece of info
       });
     }
@@ -86,7 +80,7 @@ exports.getIddData = async (req, res) => {
 
     // Send back the data, and a flag indicating if it's been submitted.
     res.json({
-      data: disclosureData.data || {},
+      data: decryptedData || {},
       isSubmitted: !!disclosureData.submitted_at, // '!!' turns the value into a true boolean
       // messages: messages || [], // Add messages to the response
       firmComments: disclosureData?.firm_comments || null, // Add the comments to the response
@@ -101,6 +95,8 @@ exports.getIddData = async (req, res) => {
 exports.saveIddDraft = async (req, res) => {
   const { token } = req.params;
   const formData = req.body; // The partial form data
+  console.log(`$$$THIS WHAT WE  CARE ABOUT ${formData}`);
+  const encryptedData = encryptData(formData);
 
   try {
     // 1. Find the case to get its ID
@@ -122,7 +118,7 @@ exports.saveIddDraft = async (req, res) => {
       .upsert(
         {
           case_id: caseId,
-          data: formData,
+          data: encryptedData,
           // We DO NOT set 'submitted_at' here, because this is just a draft.
         },
         { onConflict: "case_id" } // If a row with this case_id already exists, update it.
@@ -143,6 +139,7 @@ exports.submitIdd = async (req, res) => {
   const { token } = req.params;
   const formData = req.body; // Text fields from the form
   const file = req.file; // The uploaded file from multer
+  const encryptedData = encryptData(formData);
 
   try {
     // --- 1. Find the case that corresponds to this unique token ---
@@ -195,7 +192,7 @@ exports.submitIdd = async (req, res) => {
       .upsert(
         {
           case_id: caseId,
-          data: formData,
+          data: encryptedData,
           submitted_at: new Date().toISOString(),
         },
         { onConflict: "case_id" }

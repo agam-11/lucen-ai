@@ -1,6 +1,7 @@
 const supabaseAdmin = require("../config/supabaseClient");
 const { v4: uuidv4 } = require("uuid"); // Import uuid
 require("dotenv").config();
+const { decryptData } = require("../utils/encryption");
 
 exports.createNewCase = async (req, res) => {
   const firmUserId = req.user.sub; // Get user ID from our auth middleware
@@ -98,6 +99,14 @@ exports.getCaseDetails = async (req, res) => {
     if (disclosureError) {
       console.error("Could not fetch disclosure:", disclosureError.message);
     }
+    console.log(disclosure.data);
+
+    let finalDisclosure = null;
+    if (disclosure && disclosure.data) {
+      const decryptedData = decryptData(disclosure.data);
+      finalDisclosure = { ...disclosure, data: decryptedData };
+    }
+    console.log(disclosure);
 
     // 3. Fetch associated documents
     const { data: documents, error: docError } = await supabaseAdmin
@@ -133,111 +142,6 @@ exports.getCaseDetails = async (req, res) => {
     }
     // --- END OF NEW LOGIC ---
 
-    // --- THIS IS THE NEW, SIMPLER LOGIC FOR MESSAGES ---
-    // 1. Fetch the raw messages
-    // const { data: rawMessages, error: messagesError } = await supabaseAdmin
-    //   .from("communication_log")
-    //   .select("*")
-    //   .eq("case_id", caseId)
-    //   .order("created_at", { ascending: true });
-    // if (messagesError) {
-    //   console.error("Could not fetch messages:", messagesError.message);
-    // }
-
-    // // 2. We need to get the emails for the users who posted
-    // // To be efficient, we'll get a unique list of user IDs from the messages
-    // const userIds = [...new Set(rawMessages.map((msg) => msg.firm_user_id))];
-
-    // // 3. Fetch the user details for those IDs
-    // const { data: users, error: usersError } = await supabaseAdmin
-    //   .from("users")
-    //   .select("id, email")
-    //   .in("id", userIds);
-    // if (usersError) {
-    //   console.error("Could not fetch user emails:", usersError.message);
-    // }
-
-    // // 4. Create a quick lookup map (e.g., {'user-id-123': 'user@email.com'})
-    // const userEmailMap = users.reduce((acc, user) => {
-    //   acc[user.id] = user.email;
-    //   return acc;
-    // }, {});
-
-    // // 5. Combine the message data with the user email
-    // const messages = rawMessages.map((msg) => ({
-    //   ...msg,
-    //   firm_user: { email: userEmailMap[msg.firm_user_id] || "Unknown User" },
-    // }));
-    // --- END OF NEW LOGIC ---
-    // --- 3. Safely process the messages to add user emails ---
-    // const { data: rawMessages } = await supabaseAdmin
-    //   .from("communication_log")
-    //   .select("*")
-    //   .eq("case_id", caseId)
-    //   .order("created_at", { ascending: true });
-
-    // let messages = [];
-    // if (rawMessages && rawMessages.length > 0) {
-    //   const userIds = [...new Set(rawMessages.map((msg) => msg.firm_user_id))];
-    //   const { data: usersData } = await supabaseAdmin
-    //     .from("users")
-    //     .select("id, email")
-    //     .in("id", userIds);
-
-    //   const userEmailMap = (usersData || []).reduce((acc, user) => {
-    //     acc[user.id] = user.email;
-    //     return acc;
-    //   }, {});
-
-    //   messages = rawMessages.map((msg) => ({
-    //     ...msg,
-    //     firm_user: { email: userEmailMap[msg.firm_user_id] || "Unknown User" },
-    //   }));
-    // }
-    // --- THIS IS THE NEW, SIMPLER LOGIC FOR MESSAGES ---
-    // const { data: messagesData, error: messagesError } = await supabaseAdmin
-    //   .from("communication_log")
-    //   .select("*") // We can just get everything now
-    //   .eq("case_id", caseId)
-    //   .order("created_at", { ascending: true });
-
-    // if (messagesError) {
-    //   console.error("Could not fetch messages:", messagesError.message);
-    // }
-
-    // // Manually structure the data to match what the frontend expects
-    // const messages = (messagesData || []).map((msg) => ({
-    //   ...msg,
-    //   firm_user: { email: msg.user_email || "Unknown User" },
-    // }));
-    // --- END OF NEW LOGIC ---
-
-    // 4. (Bonus) Create secure, time-limited download links for each document
-    // let signedDocuments = [];
-    // if (documents && documents.length > 0) {
-    //   const filePaths = documents.map((doc) => doc.file_path);
-    //   const { data: signedUrlsData, error: signedUrlError } =
-    //     await supabaseAdmin.storage
-    //       .from("case-files")
-    //       .createSignedUrls(filePaths, 60 * 60); // Links are valid for 1 hour
-
-    //   if (signedUrlError) {
-    //     throw signedUrlError;
-    //   }
-
-    //   // Match original document info with its new signed URL
-    //   signedDocuments = documents.map((doc) => {
-    //     const foundUrl = signedUrlsData.find(
-    //       (urlData) => urlData.path === doc.file_path
-    //     );
-    //     return {
-    //       ...doc,
-    //       signedUrl: foundUrl ? foundUrl.signedUrl : null,
-    //     };
-    //   });
-    // }
-    //  old ^
-
     // --- THE SAFETY FIX FOR DOCUMENTS ---
     let signedDocuments = [];
     // Only try to process documents if the 'documents' array actually exists and is not empty
@@ -259,7 +163,7 @@ exports.getCaseDetails = async (req, res) => {
     // 5. Combine all data into a single response object
     const responseData = {
       ...caseDetails,
-      invention_disclosure: disclosure, // Nested disclosure object
+      invention_disclosure: finalDisclosure, // Nested disclosure object
       documents: signedDocuments, // Nested documents array
       latest_search: latestSearch,
       analyses: savedAnalyses || [],

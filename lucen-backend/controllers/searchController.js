@@ -2,6 +2,7 @@ const supabaseAdmin = require("../config/supabaseClient");
 const { OpenAI } = require("openai");
 const { getJson } = require("serpapi");
 require("dotenv").config();
+const { decryptData } = require("../utils/encryption");
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -33,8 +34,17 @@ exports.extractKeywords = async (req, res) => {
       throw new Error("Invention disclosure not found for this case.");
     }
 
+    // --- THIS IS THE FIX ---
+    // Decrypt the data before using it
+    const idd = decryptData(disclosureData.data);
+    if (!idd) {
+      throw new Error(
+        "Failed to decrypt invention data for keyword extraction."
+      );
+    }
+    // --- END OF FIX ---
+
     // 3. Prepare the text content for the AI prompt
-    const idd = disclosureData.data;
     const textForAI = `
       Title: ${idd.inventionTitle}
       Background: ${idd.background}
