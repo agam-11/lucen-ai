@@ -6,6 +6,9 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const { encryptData } = require("../utils/encryption");
+const { decryptData } = require("../utils/encryption");
+
 exports.generateDraftSection = async (req, res) => {
   const { caseId } = req.params;
   const firmUserId = req.user.sub;
@@ -29,7 +32,11 @@ exports.generateDraftSection = async (req, res) => {
       throw new Error("Invention disclosure not found or permission denied.");
     }
 
-    const idd = disclosureData.data;
+    const idd = decryptData(disclosureData.data);
+    if (!idd) {
+      throw new Error("Failed to decrypt invention data.");
+    }
+
     const fullInventionText = `
       Title: ${idd.inventionTitle}
       Background: ${idd.background}
@@ -113,6 +120,7 @@ exports.saveDraftSection = async (req, res) => {
       .eq("firm_user_id", firmUserId)
       .single();
     if (ownerError) throw new Error("Case not found or permission denied.");
+    const encryptedDraft = encryptData(draftText);
 
     // Now, upsert the draft content
     const { data, error: upsertError } = await supabaseAdmin
@@ -121,7 +129,7 @@ exports.saveDraftSection = async (req, res) => {
         {
           case_id: caseId,
           section_type: sectionType,
-          content_edited: draftText,
+          content_edited: encryptedDraft,
           updated_at: new Date().toISOString(), // Manually set the update timestamp
         },
         { onConflict: "case_id,section_type" } // This is the key for upserting
@@ -172,7 +180,9 @@ exports.getDraftSection = async (req, res) => {
       return res.json({ draftText: "" });
     }
 
-    res.json({ draftText: draftData.content_edited || "" });
+    const decryptedDraftData = decryptData(draftData.content_edited);
+
+    res.json({ draftText: decryptedDraftData || "" });
   } catch (error) {
     console.error("Error fetching draft section:", error);
     res
