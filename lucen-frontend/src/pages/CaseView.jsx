@@ -69,6 +69,7 @@ function CaseView() {
   const [analyzingId, setAnalyzingId] = useState(null); // Tracks which patent is currently being analyzed
 
   const [sharingDocId, setSharingDocId] = useState(null);
+  const [isBuildingMemory, setIsBuildingMemory] = useState(false);
 
   const fetchCaseDetails = useCallback(async () => {
     if (!session) return;
@@ -401,6 +402,36 @@ function CaseView() {
       // Optionally, show an error message to the user
     } finally {
       setSharingDocId(null); // Clear the loading state when done
+    }
+  };
+
+  // Add this handler function inside CaseView.jsx
+  const handleBuildMemory = async () => {
+    setIsBuildingMemory(true);
+    setError(null); // Clear previous errors
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/rag/${caseId}/build-memory`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        }
+      );
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message);
+      }
+
+      // Success! Refetch all data to get the new 'Drafting Ready' status
+      // which will hide this card and update the UI.
+      fetchCaseDetails();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsBuildingMemory(false);
     }
   };
 
@@ -741,6 +772,33 @@ function CaseView() {
             </div>
           </div>
         </div>
+
+        {/* --- NEW SECTION: Finalize Research --- */}
+        {/* This card only shows up after a search has been done and before memory is built */}
+        {caseDetails.status !== "Drafting Ready" && searchAttempted && (
+          <Card className="mt-8 mb-8 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+            <CardHeader>
+              <CardTitle className="text-green-800 dark:text-green-200">
+                Ready to Draft?
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-green-700 dark:text-green-300 mb-4">
+                Finalize your prior art research. This will build the AI's
+                long-term memory for this case based on your "Relevant"
+                documents, preparing it for the drafting stage.
+              </p>
+              <Button onClick={handleBuildMemory} disabled={isBuildingMemory}>
+                {isBuildingMemory && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
+                {isBuildingMemory
+                  ? "Preparing AI..."
+                  : "Finalize Research & Prepare for Drafting"}
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         {/* --- PASTE THIS NEW SECTION --- */}
         {/* Only show the drafting studio if the client has submitted their IDD */}

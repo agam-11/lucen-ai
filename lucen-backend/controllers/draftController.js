@@ -208,3 +208,39 @@ exports.getDraftSection = async (req, res) => {
       .json({ message: "Failed to fetch draft.", error: error.message });
   }
 };
+
+// Add this new function to lucen-backend/controllers/draftController.js
+exports.autoSaveVersion = async (req, res) => {
+  const { caseId } = req.params;
+  const { fullContent } = req.body;
+  const firmUserId = req.user.sub;
+
+  try {
+    // Security check: Ensure the user owns the parent case
+    const { error: ownerError } = await supabaseAdmin
+      .from("cases")
+      .select("id")
+      .eq("id", caseId)
+      .eq("firm_user_id", firmUserId)
+      .single();
+    if (ownerError) {
+      throw new Error("Permission denied.");
+    }
+
+    // Insert a new row into the versions table
+    const { data, error } = await supabaseAdmin.from("draft_versions").insert({
+      case_id: caseId,
+      full_content: fullContent,
+      // 'version_name' and 'is_milestone' are left as default
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    res.status(200).json({ message: "Auto-saved successfully." });
+  } catch (error) {
+    console.error("Error auto-saving draft:", error);
+    res.status(500).json({ message: "Failed to auto-save." });
+  }
+};
