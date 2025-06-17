@@ -6,25 +6,8 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Button } from "@/components/ui/button";
 import { EditorToolbar } from "./EditorToolbar";
-import { Check, Loader2, MoreVertical } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { SlashCommand } from "../lib/tiptap/SlashCommand"; // <-- 1. IMPORT OUR NEW EXTENSION
-
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 
 // --- This is the "Highlight-to-Action" menu ---
 const AiBubbleMenu = ({ editor, onCommand }) => {
@@ -77,13 +60,9 @@ const AiBubbleMenu = ({ editor, onCommand }) => {
   );
 };
 
-function MasterDocumentEditor({ caseId, previewContent }) {
+function MasterDocumentEditor({ caseId }) {
   const { session } = useAuth();
   const [saveStatus, setSaveStatus] = useState("All changes saved");
-  // --- NEW STATE for the milestone dialog ---
-  const [isMilestoneDialogOpen, setIsMilestoneDialogOpen] = useState(false);
-  const [versionName, setVersionName] = useState("");
-  const [milestoneError, setMilestoneError] = useState("");
 
   const editor = useEditor({
     extensions: [
@@ -108,57 +87,10 @@ function MasterDocumentEditor({ caseId, previewContent }) {
       }
     },
 
-    onUpdate: ({ editor }) => {
-      // Only set to "Unsaved" if there is actual content in the editor
-      if (editor.getText().trim().length > 0) {
-        setSaveStatus("Unsaved changes");
-      }
+    onUpdate: () => {
+      setSaveStatus("Unsaved changes");
     },
   });
-
-  // Paste this entire useEffect block inside your MasterDocumentEditor component
-
-  useEffect(() => {
-    const fetchLatestDraft = async () => {
-      // Don't run if the editor isn't ready or we don't have a session
-      if (!editor || !session) return;
-
-      try {
-        const response = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/drafts/${caseId}/latest`,
-          {
-            headers: { Authorization: `Bearer ${session.access_token}` },
-          }
-        );
-        if (!response.ok) throw new Error("Could not load initial draft.");
-
-        const data = await response.json();
-
-        // Set the editor's content with the loaded text
-        // We use a boolean 'false' to prevent the cursor from jumping
-        editor.commands.setContent(data.fullContent || "", false);
-      } catch (error) {
-        console.error("Failed to fetch latest draft:", error);
-        // We can leave the editor empty if fetching fails
-      }
-    };
-
-    fetchLatestDraft();
-  }, [caseId, session, editor]); // This runs once when the component is ready
-
-  useEffect(() => {
-    if (!editor) return;
-
-    // If we are in preview mode, show the old content and lock the editor
-    if (previewContent !== null) {
-      editor.setEditable(false);
-      editor.commands.setContent(previewContent);
-    } else {
-      // Otherwise, make sure the editor is editable
-      editor.setEditable(true);
-      // In a real app, you would load the LATEST draft here.
-    }
-  }, [previewContent, editor]);
 
   const handleNaturalLanguageCommand = useCallback(
     async (command, range = null) => {
@@ -247,33 +179,6 @@ function MasterDocumentEditor({ caseId, previewContent }) {
     [editor, caseId, session]
   );
 
-  // --- NEW HANDLER for creating a named milestone ---
-  const handleCreateMilestone = async () => {
-    if (!versionName.trim() || !editor || !session) return;
-    setMilestoneError("");
-    try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/drafts/${caseId}/milestones`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ versionName }),
-        }
-      );
-      if (!response.ok) {
-        throw new Error("Failed to create milestone.");
-      }
-      setSaveStatus("Milestone saved!");
-      setIsMilestoneDialogOpen(false);
-      setVersionName("");
-    } catch (error) {
-      setMilestoneError(error.message);
-    }
-  };
-
   // Add this new useEffect block inside MasterDocumentEditor.jsx
 
   // --- The Auto-Save Logic (Debouncing) ---
@@ -295,7 +200,7 @@ function MasterDocumentEditor({ caseId, previewContent }) {
         const response = await fetch(
           `${import.meta.env.VITE_API_BASE_URL}/api/drafts/${caseId}/auto-save`,
           {
-            method: "PUT", // We use POST to create a new version every time
+            method: "POST", // We use POST to create a new version every time
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${session.access_token}`,
@@ -327,34 +232,7 @@ function MasterDocumentEditor({ caseId, previewContent }) {
       {/* This is the new header section */}
       <div className="flex justify-between items-center border-b">
         <EditorToolbar editor={editor} />
-
-        {/* --- THIS IS THE NEW "SPLIT BUTTON" UI --- */}
-        <div className="flex items-center space-x-1 pr-4">
-          <div className="flex items-center space-x-2">
-            {saveStatus === "Saving..." && (
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-            )}
-            {saveStatus === "All changes saved" && (
-              <Check className="h-4 w-4 text-green-500" />
-            )}
-            <span className="text-sm text-muted-foreground">{saveStatus}</span>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => setIsMilestoneDialogOpen(true)}>
-                Save as named version...
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        {/* --- END OF NEW UI --- */}
-
-        {/* <div className="flex items-center space-x-2 pr-4">
+        <div className="flex items-center space-x-2 pr-4">
           {saveStatus === "Saving..." && (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           )}
@@ -362,7 +240,7 @@ function MasterDocumentEditor({ caseId, previewContent }) {
             <Check className="h-4 w-4 text-green-500" />
           )}
           <span className="text-sm text-muted-foreground">{saveStatus}</span>
-        </div> */}
+        </div>
       </div>
 
       {/* The rest of the component */}
@@ -373,36 +251,6 @@ function MasterDocumentEditor({ caseId, previewContent }) {
         />
       )}
       <EditorContent className="flex-grow overflow-y-auto" editor={editor} />
-      {/* --- NEW DIALOG for naming a version --- */}
-      <Dialog
-        open={isMilestoneDialogOpen}
-        onOpenChange={setIsMilestoneDialogOpen}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create a Milestone</DialogTitle>
-            <DialogDescription>
-              Give this version of the document a name to save it permanently in
-              the version history.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 space-y-2">
-            <Label htmlFor="version-name">Version Name</Label>
-            <Input
-              id="version-name"
-              value={versionName}
-              onChange={(e) => setVersionName(e.target.value)}
-              placeholder="e.g., First Draft of Claims"
-            />
-            {milestoneError && (
-              <p className="text-sm text-red-500">{milestoneError}</p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button onClick={handleCreateMilestone}>Save Milestone</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
