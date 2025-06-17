@@ -264,7 +264,7 @@ exports.submitClientReview = async (req, res) => {
     if (status === "changes_requested") {
       const { error: caseUpdateError } = await supabaseAdmin
         .from("cases")
-        .update({ status: "Client Changes Requested" }) // A new, clear status
+        .update({ status: "Changes Requested by Client" }) // A new, clear status
         .eq("id", caseData.id);
 
       if (caseUpdateError) {

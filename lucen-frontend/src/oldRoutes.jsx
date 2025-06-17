@@ -10,9 +10,6 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import CaseView from "./pages/CaseView";
 import ClientIddForm from "./pages/ClientIddForm";
 import DraftingStudioPage from "./pages/DraftingStudioPage";
-import PriorArtInvestigator from "./features/case-view/PriorArtInvestigator";
-import CaseDocuments from "./features/case-view/CaseDocuments";
-import IddView from "./features/case-view/IddView";
 
 const routes = [
   {
@@ -49,24 +46,10 @@ const routes = [
       {
         path: "/case/:caseId",
         element: <CaseView />,
-        children: [
-          {
-            path: "investigation",
-            element: <PriorArtInvestigator />,
-          },
-          {
-            path: "drafting",
-            element: <DraftingStudioPage />,
-          },
-          {
-            path: "documents",
-            element: <CaseDocuments />,
-          },
-          {
-            path: "disclosure",
-            element: <IddView />,
-          },
-        ],
+      },
+      {
+        path: "/case/:caseId/draft",
+        element: <DraftingStudioPage />,
       },
     ],
   },

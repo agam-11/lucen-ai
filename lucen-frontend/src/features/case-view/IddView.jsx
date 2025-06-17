@@ -41,7 +41,9 @@ function IddView() {
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-bold">Invention Disclosure</h1>
+      <h1 className="text-3xl font-bold border-b pb-2 mb-3">
+        Invention Disclosure
+      </h1>
 
       {caseDetails.status === "IDD Submitted" && (
         <Card className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">

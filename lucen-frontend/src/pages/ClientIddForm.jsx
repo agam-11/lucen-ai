@@ -198,7 +198,10 @@ function ClientIddForm() {
 
   // const isFormDisabled = caseStatus === "IDD Submitted";
   console.log(caseStatus);
-  const isFormDisabled = caseStatus !== "Awaiting Client IDD";
+  const isFormDisabled = ![
+    "Awaiting Client IDD",
+    "Pending Client Edits",
+  ].includes(caseStatus);
 
   // if (isSubmitted) {
   //   return (

@@ -39,13 +39,13 @@ router.post("/:caseId/request-changes", authenticateToken, requestChanges);
 router.post("/:caseId/extract-keywords", authenticateToken, extractKeywords);
 router.post("/:caseId/search", authenticateToken, searchWithKeywords);
 // draftRoute
-router.post("/:caseId/draft-section", authenticateToken, generateDraftSection);
-router.put("/:caseId/draft-section", authenticateToken, saveDraftSection);
-router.get(
-  "/:caseId/draft-section/:sectionType",
-  authenticateToken,
-  getDraftSection
-);
+// router.post("/:caseId/draft-section", authenticateToken, generateDraftSection);
+// router.put("/:caseId/draft-section", authenticateToken, saveDraftSection);
+// router.get(
+//   "/:caseId/draft-section/:sectionType",
+//   authenticateToken,
+//   getDraftSection
+// );
 // analyseRoute
 router.post("/:caseId/analyze-prior-art", authenticateToken, analyzePriorArt);
 

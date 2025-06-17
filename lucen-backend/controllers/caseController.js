@@ -264,7 +264,7 @@ exports.requestChanges = async (req, res) => {
     // 2. Update the case status back to 'Awaiting Client IDD'
     const { error: caseUpdateError } = await supabaseAdmin
       .from("cases")
-      .update({ status: "Awaiting Client IDD" })
+      .update({ status: "Pending Client Edits" })
       .eq("id", caseId);
     if (caseUpdateError) {
       throw caseUpdateError;

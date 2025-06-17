@@ -277,9 +277,10 @@ function PriorArtInvestigator() {
 
   return (
     <div className="mb-6">
-      <h2 className="text-xl font-semibold border-b pb-2 mb-3">
+      <h1 className="text-3xl font-bold border-b pb-2 mb-3">
         AI Prior Art Investigator
-      </h2>
+      </h1>
+
       <div className="bg-white mb-8 dark:bg-card p-4 rounded-lg shadow-sm">
         {!suggestedKeywords.length > 0 ? (
           // View before keywords are generated

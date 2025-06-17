@@ -20,20 +20,6 @@ exports.buildMemoryForCase = async (req, res) => {
   const firmUserId = req.user.sub;
 
   try {
-    // 1. Delete all existing memory chunks for this case to start fresh.
-    console.log(`Deleting old memory chunks for case: ${caseId}`);
-    const { error: deleteError } = await supabaseAdmin
-      .from("document_chunks")
-      .delete()
-      .eq("case_id", caseId);
-
-    if (deleteError) {
-      console.error(
-        "Failed to delete old chunks, proceeding anyway...",
-        deleteError
-      );
-    }
-
     // Security check and fetch all necessary data
     const { data: caseData, error } = await supabaseAdmin
       .from("cases")

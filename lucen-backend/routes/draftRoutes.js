@@ -5,6 +5,11 @@ const {
   saveDraftSection,
   getDraftSection,
   autoSaveVersion,
+  createNamedVersion,
+  getDraftHistory,
+  getDraftVersionContent,
+  restoreVersion,
+  getLatestDraft,
 } = require("../controllers/draftController");
 
 const router = express.Router();
@@ -16,6 +21,15 @@ const router = express.Router();
 // authenticateToken,
 // getDraftSection
 // );
-router.post("/:caseId/versions", authenticateToken, autoSaveVersion);
+// works with oldDraftController
+// router.post("/:caseId/versions", authenticateToken, autoSaveVersion);
+
+router.put("/:caseId/auto-save", authenticateToken, autoSaveVersion);
+
+router.post("/:caseId/milestones", authenticateToken, createNamedVersion);
+router.get("/:caseId/history", authenticateToken, getDraftHistory);
+router.get("/versions/:versionId", authenticateToken, getDraftVersionContent);
+router.post("/versions/:versionId/restore", authenticateToken, restoreVersion);
+router.get("/:caseId/latest", authenticateToken, getLatestDraft);
 
 module.exports = router;
