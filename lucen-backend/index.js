@@ -16,7 +16,8 @@ const analysisRoutes = require("./routes/analysisRoutes");
 const draftRoutes = require("./routes/draftRoutes");
 const documentRoutes = require("./routes/documentRoutes");
 const ragRoutes = require("./routes/ragRoutes");
-commandRoutes = require("./routes/commandRoutes");
+const commandRoutes = require("./routes/commandRoutes");
+const draftImageRoutes = require("./routes/draftImageRoutes");
 
 app.use(cors()); // Enable CORS for all routes
 app.use(express.json()); // Middleware to parse JSON bodies
@@ -34,6 +35,8 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/rag", ragRoutes);
 app.use("/api/command", commandRoutes);
 app.use("/api/drafts", draftRoutes);
+// Add this line in server.js
+app.use("/api/drafts", draftImageRoutes);
 
 // --- TEST ROUTE ---
 app.get("/api/test-route", (req, res) => {

@@ -1,5 +1,5 @@
 // src/components/MasterDocumentEditor.jsx
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { useEditor, EditorContent, BubbleMenu } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { EditorToolbar } from "./EditorToolbar";
 import { Check, Loader2, MoreVertical } from "lucide-react";
 import { SlashCommand } from "../lib/tiptap/SlashCommand"; // <-- 1. IMPORT OUR NEW EXTENSION
+import Image from "@tiptap/extension-image";
+import TextAlign from "@tiptap/extension-text-align";
+import ImageResize from "tiptap-extension-resize-image";
 
 import {
   DropdownMenu,
@@ -84,6 +87,7 @@ function MasterDocumentEditor({ caseId, previewContent }) {
   const [isMilestoneDialogOpen, setIsMilestoneDialogOpen] = useState(false);
   const [versionName, setVersionName] = useState("");
   const [milestoneError, setMilestoneError] = useState("");
+  const fileInputRef = useRef(null);
 
   const editor = useEditor({
     extensions: [
@@ -93,12 +97,60 @@ function MasterDocumentEditor({ caseId, previewContent }) {
           "Type your draft or type // followed by a command and press Enter...",
       }),
       SlashCommand,
+      Image,
+      ImageResize,
+      TextAlign.configure({
+        types: ["heading", "paragraph"], // Allow alignment on text and images
+      }),
     ],
     content: "",
     editorProps: {
       attributes: {
         class:
           "prose dark:prose-invert max-w-none p-8 focus:outline-none h-full",
+      },
+      handleDrop: function (event) {
+        // Prevent the browser's default file handling
+        event.preventDefault();
+
+        // Check if the dropped item contains files
+        if (
+          event.dataTransfer &&
+          event.dataTransfer.files &&
+          event.dataTransfer.files.length > 0
+        ) {
+          const files = event.dataTransfer.files;
+          // Loop through the files (in case user drops multiple)
+          for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            // Check if it's an image
+            if (file.type.startsWith("image/")) {
+              // Call our existing upload function for the first image found
+              handleImageUpload(file);
+              return true; // We've handled the event
+            }
+          }
+        }
+        return false; // We didn't handle it, let Tiptap continue
+      },
+      handlePaste: function (view, event) {
+        // Get the items from the clipboard
+        const items = (event.clipboardData || event.originalEvent.clipboardData)
+          .items;
+        for (const item of items) {
+          // Check if the item is an image file
+          if (item.type.startsWith("image/")) {
+            const file = item.getAsFile();
+            if (file) {
+              // Prevent the default paste behavior
+              event.preventDefault();
+              // Call our existing upload function
+              handleImageUpload(file);
+              return true; // We've handled the event
+            }
+          }
+        }
+        return false; // We didn't handle it, let Tiptap continue
       },
     },
     onTransaction: ({ transaction }) => {
@@ -274,6 +326,86 @@ function MasterDocumentEditor({ caseId, previewContent }) {
     }
   };
 
+  // Add this new function inside your MasterDocumentEditor.jsx component
+
+  const handleImageUpload = (file) => {
+    if (!file || !editor || !session) return;
+
+    // A small check for image types
+    if (!file.type.startsWith("image/")) {
+      alert("Only image files can be uploaded.");
+      return;
+    }
+
+    // --- Part 1: Create a temporary placeholder ---
+    // We create a temporary URL so the user sees the image immediately
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+      // Insert a temporary, blurred image into the editor
+      editor
+        .chain()
+        .focus()
+        .setImage({ src: reader.result, style: "filter: blur(4px);" })
+        .run();
+    };
+
+    // --- Part 2: Upload the file to the backend ---
+    const upload = async () => {
+      const formData = new FormData();
+      formData.append("imageFile", file);
+
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/api/drafts/${caseId}/images`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: formData,
+          }
+        );
+
+        const result = await response.json();
+        if (!response.ok) {
+          throw new Error(result.message);
+        }
+
+        // --- Part 3: Replace the placeholder with the real URL ---
+        // Find the temporary image we just inserted and update its source to the permanent URL
+        const transaction = editor.state.tr;
+        editor.state.doc.descendants((node, pos) => {
+          if (
+            node.type.name === "image" &&
+            node.attrs.src.startsWith("data:")
+          ) {
+            transaction.setNodeMarkup(pos, undefined, {
+              ...node.attrs,
+              src: result.imageUrl,
+              style: "",
+            });
+          }
+        });
+        editor.view.dispatch(transaction);
+      } catch (error) {
+        console.error("Image upload failed:", error);
+        // Optionally, remove the placeholder image on failure
+        // editor.chain().focus().deleteRange(/* range of placeholder */).run();
+        alert(`Image upload failed: ${error.message}`);
+      }
+    };
+
+    reader.onloadend = () => {
+      upload();
+    };
+  };
+
+  // Add this function inside your MasterDocumentEditor component
+  const triggerFileInput = () => {
+    fileInputRef.current.click();
+  };
+
   // Add this new useEffect block inside MasterDocumentEditor.jsx
 
   // --- The Auto-Save Logic (Debouncing) ---
@@ -326,7 +458,7 @@ function MasterDocumentEditor({ caseId, previewContent }) {
     <div className="h-full relative flex flex-col">
       {/* This is the new header section */}
       <div className="flex justify-between items-center border-b">
-        <EditorToolbar editor={editor} />
+        <EditorToolbar editor={editor} onImageUploadClick={triggerFileInput} />
 
         {/* --- THIS IS THE NEW "SPLIT BUTTON" UI --- */}
         <div className="flex items-center space-x-1 pr-4">
@@ -403,6 +535,14 @@ function MasterDocumentEditor({ caseId, previewContent }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* --- ADD THE HIDDEN FILE INPUT HERE --- */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={(e) => handleImageUpload(e.target.files[0])}
+        className="hidden"
+        accept="image/png, image/jpeg, image/gif"
+      />
     </div>
   );
 }

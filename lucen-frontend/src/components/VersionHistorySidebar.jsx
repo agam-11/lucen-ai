@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Star, Clock } from "lucide-react";
 
-function VersionHistorySidebar({ caseId, onSelectVersion, currentContent }) {
+function VersionHistorySidebar({ caseId, onSelectVersion }) {
   const { session } = useAuth();
   const [history, setHistory] = useState([]);
   const [isLoading, setIsLoading] = useState(true);

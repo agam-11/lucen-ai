@@ -155,4 +155,42 @@
   opacity: 0.5; /* <-- ADD THIS LINE */
 }
 
+/* --- Tiptap Image Resizing Styles --- */
+
+/* Add a blue ring around the selected image so the user knows it's active */
+img.ProseMirror-selectednode {
+  outline: 3px solid hsl(var(--primary));
+}
+
+/* This is the styling for the resize handles themselves */
+.tiptap-resizer {
+  position: absolute;
+  background: hsl(var(--primary));
+  border: 1px solid white;
+  border-radius: 2px;
+  width: 10px;
+  height: 10px;
+}
+
+.tiptap-resizer[data-direction="topLeft"] {
+  top: -5px;
+  left: -5px;
+  cursor: nwse-resize;
+}
+.tiptap-resizer[data-direction="topRight"] {
+  top: -5px;
+  right: -5px;
+  cursor: nesw-resize;
+}
+.tiptap-resizer[data-direction="bottomLeft"] {
+  bottom: -5px;
+  left: -5px;
+  cursor: nesw-resize;
+}
+.tiptap-resizer[data-direction="bottomRight"] {
+  bottom: -5px;
+  right: -5px;
+  cursor: nwse-resize;
+}
+
 /* TipTap Editor CSS ENDS*/
